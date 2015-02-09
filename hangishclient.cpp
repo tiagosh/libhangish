@@ -163,12 +163,13 @@ QList<User> HangishClient::parseGroup(QString input)
 QList<User> HangishClient::parseUsers(QString userString)
 {
     QList<User> res;
-    int start = userString.indexOf("</script><script>AF_initDataCallback({key: 'ds:37',");
+    //int start = userString.indexOf("</script><script>AF_initDataCallback({key: 'ds:37',");
+    int start = userString.indexOf("</script><script>AF_initDataCallback({key: 'ds:21',");
     start = userString.indexOf("return [[", start) + strlen("return [[");
     //Skip 2 fields
-    Utils::getNextAtomicField(userString, start);
-    Utils::getNextAtomicField(userString, start);
-    //Utils::getNextAtomicField(conv, start);
+    for (int i=0; i<2; i++)
+        Utils::getNextAtomicField(userString, start);
+
     QString entities = Utils::getNextAtomicField(userString,start);
     res.append(parseClientEntities(entities));
     //Skip 1
@@ -329,7 +330,8 @@ void HangishClient::parseConversationState(QString conv)
 QList<Conversation> HangishClient::parseConversations(QString conv)
 {
     QList<Conversation> res;
-    int start = conv.indexOf("</script><script>AF_initDataCallback({key: 'ds:36',");
+//    int start = conv.indexOf("</script><script>AF_initDataCallback({key: 'ds:36',");
+    int start = conv.indexOf("</script><script>AF_initDataCallback({key: 'ds:19',");
     start = conv.indexOf("return [[", start) + strlen("return [[");
     //Skip 3 fields
     for (int i=0; i<3; i++)
@@ -367,7 +369,8 @@ void HangishClient::postReply(QNetworkReply *reply)
 
 User HangishClient::parseMySelf(QString sreply) {
     //SELF INFO
-    int start = sreply.indexOf("AF_initDataCallback({key: 'ds:35'") + strlen("AF_initDataCallback({key: 'ds:35'");
+    //int start = sreply.indexOf("AF_initDataCallback({key: 'ds:35'") + strlen("AF_initDataCallback({key: 'ds:35'");
+    int start = sreply.indexOf("AF_initDataCallback({key: 'ds:20'") + strlen("AF_initDataCallback({key: 'ds:20'");
     start = sreply.indexOf("return ", start) + strlen("return ");
     sreply = Utils::getNextField(sreply, start);
     QString self_info = Utils::getNextField(sreply, 1);
@@ -414,6 +417,7 @@ void HangishClient::networkReply()
 
             //API KEY
             int start = sreply.indexOf("AF_initDataCallback({key: 'ds:7'") + strlen("AF_initDataCallback({key: 'ds:7'");
+            //This is safe against chenges of Feb 7th, but maybe it's not that safe against other changes
             int key_start = sreply.indexOf("client.js\",\"", start) + strlen("client.js\",\"");
             int key_stop = sreply.indexOf("\"", key_start) + 1;
             api_key = sreply.mid(key_start, key_stop - key_start-1);
@@ -429,7 +433,7 @@ void HangishClient::networkReply()
 
             QString tmp;
             start = sreply.indexOf("AF_initDataCallback({key: 'ds:4'");
-            start = sreply.indexOf("data:[[", start) + strlen("data:[[");
+            start = sreply.indexOf("return [[", start) + strlen("return [[");
             //Skip 1
             Utils::getNextAtomicField(sreply, start);
             tmp = Utils::getNextAtomicField(sreply, start);
@@ -452,7 +456,7 @@ void HangishClient::networkReply()
             //clid = header_id;
 
             start = sreply.indexOf("AF_initDataCallback({key: 'ds:2'");
-            start = sreply.indexOf("data:[[", start) + strlen("data:[[");
+            start = sreply.indexOf("return [[", start) + strlen("return [[");
             for (int i=0; i<4; i++) {
                 Utils::getNextAtomicField(sreply, start);
             }
@@ -462,9 +466,9 @@ void HangishClient::networkReply()
             tmp = Utils::getNextAtomicField(sreply, start);
             header_version = tmp.mid(1, tmp.size()-2);
 
-            //qDebug() << "HID " << header_id;
-            //qDebug() << "HDA " << header_date;
-            //qDebug() << "HVE " << header_version;
+            qDebug() << "HID " << header_id;
+            qDebug() << "HDA " << header_date;
+            qDebug() << "HVE " << header_version;
 
             myself = parseMySelf(sreply);
             if (!myself.email.contains("@"))
