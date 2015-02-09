@@ -1134,13 +1134,13 @@ void HangishClient::authenticationDone()
     getPVTToken();
 }
 
-void Client::qnamUpdatedSlot(QNetworkAccessManager *qnam)
+void HangishClient::qnamUpdatedSlot(QNetworkAccessManager *qnam)
 {
     qDebug() << "CLT: upd nam";
     nam = qnam;
 }
 
-void Client::cookieUpdateSlot(QNetworkCookie cookie)
+void HangishClient::cookieUpdateSlot(QNetworkCookie cookie)
 {
     qDebug() << "CLT: upd " << cookie.name();
     for (int i=0; i<sessionCookies.size(); i++) {
