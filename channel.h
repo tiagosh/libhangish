@@ -76,6 +76,8 @@ private Q_SLOTS:
     void longPollRequest();
 
 Q_SIGNALS:
+    void cookieUpdateNeeded(QNetworkCookie cookie);
+    void qnamUpdated(QNetworkAccessManager *qnam);
     void updateClientId(QString newID);
     void activeClientUpdate(int state);
     void updateWM(QString convId);

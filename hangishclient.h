@@ -135,6 +135,8 @@ public Q_SLOTS:
     void loginNeededSlot();
     void updateClientId(QString newID);
     void setFocusReply();
+    void cookieUpdateSlot(QNetworkCookie cookie);
+    void qnamUpdatedSlot(QNetworkAccessManager *qnam);
 
 Q_SIGNALS:
     void loginNeeded();
