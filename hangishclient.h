@@ -69,7 +69,7 @@ private:
     QList<User> parseGroup(QString input);
     QList<User> users;
     QList<User> parseUsers(QString userString);
-    Conversation getConvById(QString cid);
+    QMap<QString, Conversation> conversations;
 
     //RosterModel *rosterModel;
     //ConversationModel *conversationModel;
@@ -95,6 +95,7 @@ private:
 public:
     HangishClient(const QString &cookiePath);
     void initChat(QString pvt);
+    Conversation getConvById(const QString &cid);
     Q_INVOKABLE void sendChatMessage(QString segments, QString conversationId);
     Q_INVOKABLE void sendImage(QString segments, QString conversationId, QString filename);
     Q_INVOKABLE QString getSelfChatId();
