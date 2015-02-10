@@ -307,6 +307,8 @@ void HangishClient::parseConversationState(QString conv)
     Conversation c = parseConversation(conv, start);
     qDebug() << c.id;
     qDebug() << c.events.size();
+    conversations[c.id] = c;
+
 
     //Now formalize what happened:
 
@@ -494,6 +496,7 @@ void HangishClient::networkReply()
                 foreach (Event e, c.events)
                     if (e.timestamp > c.lastReadTimestamp)
                         c.unread++;
+                conversations[c.id] = c;
                 //rosterModel->addConversationAbstract(c);
                 //conversationModel->addConversation(c);
             }
@@ -1322,4 +1325,9 @@ void HangishClient::updateClientId(QString newID)
 {
     qDebug() << "Updating clid " << newID;
     clid = newID;
+}
+
+Conversation HangishClient::getConvById(const QString &convId)
+{
+    return conversations[convId];
 }
