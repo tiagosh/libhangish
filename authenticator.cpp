@@ -31,6 +31,41 @@ along with Nome-Programma.  If not, see <http://www.gnu.org/licenses/>
 static QString user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.132 Safari/537.36";
 static QString SECONDFACTOR_URL = "https://accounts.google.com/SecondFactor";
 
+
+Authenticator::Authenticator(const QString &cookiePath) : mAuthPhase(0)
+{
+    mCookiePath = cookiePath;
+}
+
+void Authenticator::auth()
+{
+    QFile cookieFile(mCookiePath);
+    if (cookieFile.exists()) {
+        cookieFile.open(QIODevice::ReadOnly | QIODevice::Text);
+        QString val = cookieFile.readAll();
+        cookieFile.close();
+        QJsonDocument doc = QJsonDocument::fromJson(val.toUtf8());
+        QJsonObject obj = doc.object();
+        Q_FOREACH  (QString s, obj.keys()) {
+            //TODO: check and delete
+            if (s=="ACCOUNT_CHOOSER" || s=="GALX" || s=="GAPS" || s=="LSID" || s=="NID") continue;
+            QNetworkCookie tmp;
+            tmp.setName(QVariant(s).toByteArray());
+            tmp.setValue(obj.value(s).toVariant().toByteArray());
+            tmp.setDomain(".google.com");
+
+            mSessionCookies.append(tmp);
+        }
+        Q_EMIT gotCookies();
+    } else {
+        mAuthPhase = 0;
+        QObject::connect(&mNetworkAccessManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(networkCallback(QNetworkReply *)));
+        mNetworkAccessManager.setCookieJar(&mCookieJar);
+        Q_EMIT loginNeeded();
+        getGalxToken();
+    }
+}
+
 void Authenticator::networkCallback(QNetworkReply *reply) {
     QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
@@ -230,38 +265,4 @@ void Authenticator::updateCookies(QList<QNetworkCookie> cookies)
 
         Q_EMIT gotCookies();
     }
-}
-
-void Authenticator::auth()
-{
-    QFile cookieFile(mCookiePath);
-    if (cookieFile.exists()) {
-        cookieFile.open(QIODevice::ReadOnly | QIODevice::Text);
-        QString val = cookieFile.readAll();
-        cookieFile.close();
-        QJsonDocument doc = QJsonDocument::fromJson(val.toUtf8());
-        QJsonObject obj = doc.object();
-        Q_FOREACH  (QString s, obj.keys()) {
-            //TODO: check and delete
-            if (s=="ACCOUNT_CHOOSER" || s=="GALX" || s=="GAPS" || s=="LSID" || s=="NID") continue;
-            QNetworkCookie tmp;
-            tmp.setName(QVariant(s).toByteArray());
-            tmp.setValue(obj.value(s).toVariant().toByteArray());
-            tmp.setDomain(".google.com");
-
-            mSessionCookies.append(tmp);
-        }
-        Q_EMIT gotCookies();
-    } else {
-        mAuthPhase = 0;
-        QObject::connect(&mNetworkAccessManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(networkCallback(QNetworkReply *)));
-        mNetworkAccessManager.setCookieJar(&mCookieJar);
-        Q_EMIT loginNeeded();
-        getGalxToken();
-    }
-}
-
-Authenticator::Authenticator(const QString &cookiePath) : mAuthPhase(0)
-{
-    mCookiePath = cookiePath;
 }
