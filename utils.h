@@ -24,13 +24,13 @@ along with Nome-Programma.  If not, see <http://www.gnu.org/licenses/>
 #ifndef UTILS_H
 #define UTILS_H
 
-#include "qtimports.h"
-#include "structs.h"
+#include <QString>
+#include <QDateTime>
+#include "types.h"
 
 class Utils
 {
 public:
-    Utils();
     static Identity parseIdentity(QString input);
     static int skipTextFields(QString input, int startPos);
     static int skipFields(QString input, int startPos);

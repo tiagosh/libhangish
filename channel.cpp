@@ -20,61 +20,23 @@ along with Nome-Programma.  If not, see <http://www.gnu.org/licenses/>
 
 */
 
-
 #include "channel.h"
 
 static QString user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.71 Safari/537.36";
 static qint32 MAX_READ_BYTES = 1024 * 1024;
 
-void Channel::checkChannel()
+Channel::Channel(QNetworkAccessManager *n, QList<QNetworkCookie> cookies, QString ppath, QString pclid, QString pec, QString pprop, User pms) :
+    mLongPoolRequest(NULL),
+    mChannelError(false),
+    mNetworkAccessManager(n),
+    mMyself(pms),
+    mSessionCookies(cookies),
+    mClid(pclid),
+    mEc(pec),
+    mPath(ppath),
+    mProp(pprop),
+    mLastPushReceived(QDateTime::currentDateTime())
 {
-    qDebug() << "Checking chnl";
-    if (lastPushReceived.secsTo(QDateTime::currentDateTime()) > 30) {
-        qDebug() << "Dead, here I should sync al evts from last ts and notify QML that we're offline";
-        qDebug() << "start new lpconn";
-        channelError = true;
-        emit(channelLost());
-        /*
-        if (LPrep != NULL) {
-            LPrep->close();
-            delete LPrep;
-        }
-        */
-        QTimer::singleShot(500, this, SLOT(longPollRequest()));
-    }
-}
-
-void Channel::fastReconnect()
-{
-    qDebug() << "fast reconnecting";
-    /*
-    if (LPrep != NULL) {
-        LPrep->close();
-        delete LPrep;
-    }
-    */
-    QTimer::singleShot(500, this, SLOT(longPollRequest()));
-}
-
-Channel::Channel(QNetworkAccessManager *n, QList<QNetworkCookie> cookies, QString ppath, QString pclid, QString pec, QString pprop, User pms)
-{
-    LPrep = NULL;
-    channelError = false;
-
-    nam = n;
-    myself = pms;
-    //conversationModel = cModel;
-    //rosterModel = rModel;
-
-    session_cookies = cookies;
-    path = ppath;
-    clid = pclid;
-    ec = pec;
-    prop = pprop;
-
-    //Init
-    lastPushReceived = QDateTime::currentDateTime();
-
     QTimer *timer = new QTimer(this);
     QObject::connect(timer, SIGNAL(timeout()), this, SLOT(checkChannel()));
     timer->start(30000);
@@ -85,13 +47,17 @@ ChannelEvent Channel::parseTypingNotification(QString input, ChannelEvent evt)
     int start = 1;
     QString conversationId = Utils::getNextAtomicField(input, start);
     conversationId = conversationId.mid(1, conversationId.size()-2);
-    if (conversationId=="") return evt;
+    if (conversationId.isEmpty())
+        return evt;
+
     QString userId = Utils::getNextAtomicField(input, start);
-    if (userId=="") return evt;
+    if (userId.isEmpty())
+        return evt;
+
     QString ts = Utils::getNextAtomicField(input, start);
-    if (ts=="") return evt;
-    //QString typingStatus = Utils::getNextAtomicField(input, start);
-    //No need to parse a field, I know what to expect
+    if (ts.isEmpty())
+        return evt;
+
     QString typingStatus = input.mid(start, 1);
     evt.conversationId = conversationId.mid(1, conversationId.size()-2);
     evt.userId = userId;
@@ -101,29 +67,47 @@ ChannelEvent Channel::parseTypingNotification(QString input, ChannelEvent evt)
     return evt;
 }
 
-void Channel::nrf()
+void Channel::checkChannel()
+{
+    qDebug() << "Checking chnl";
+    if (mLastPushReceived.secsTo(QDateTime::currentDateTime()) > 30) {
+        qDebug() << "Dead, here I should sync al evts from last ts and notify QML that we're offline";
+        qDebug() << "start new lpconn";
+        mChannelError = true;
+        Q_EMIT channelLost();
+        QTimer::singleShot(500, this, SLOT(longPollRequest()));
+    }
+}
+
+void Channel::fastReconnect()
+{
+    qDebug() << "fast reconnecting";
+    QTimer::singleShot(500, this, SLOT(longPollRequest()));
+}
+
+void Channel::networkRequestFinished()
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
     //Eventually update cookies, may set S
     bool cookieUpdated = false;
-    foreach(QNetworkCookie cookie, c) {
+    Q_FOREACH (QNetworkCookie cookie, c) {
         qDebug() << cookie.name();
-        for (int i=0; i<session_cookies.size(); i++) {
-            if (session_cookies[i].name() == cookie.name()) {
-                session_cookies[i].setValue(cookie.value());
-                emit cookieUpdateNeeded(cookie);
+        for (int i=0; i<mSessionCookies.size(); i++) {
+            if (mSessionCookies[i].name() == cookie.name()) {
+                mSessionCookies[i].setValue(cookie.value());
+                Q_EMIT cookieUpdateNeeded(cookie);
                 qDebug() << "Updated cookie " << cookie.name();
                 cookieUpdated = true;
             }
         }
     }
     if (cookieUpdated) {
-        nam = new QNetworkAccessManager();
-        emit qnamUpdated(nam);
+        mNetworkAccessManager = new QNetworkAccessManager();
+        Q_EMIT qnamUpdated(mNetworkAccessManager);
     }
-    qDebug() << "FINISHED called! " << channelError;
+    qDebug() << "FINISHED called! " << mChannelError;
     QString srep = reply->readAll();
     qDebug() << srep;
     if (srep.contains("Unknown SID")) {
@@ -132,7 +116,7 @@ void Channel::nrf()
         return;
     }
     //If there's a network problem don't do anything, the connection will be retried by checkChannelStatus
-    if (!channelError) longPollRequest();
+    if (!mChannelError) longPollRequest();
 }
 
 void Channel::parseChannelData(QString sreply)
@@ -194,30 +178,30 @@ void Channel::parseChannelData(QString sreply)
             QString header = Utils::getNextAtomicField(payload, start);
             qDebug() << header;
             if (header.size()>10)
-                {
-                    QString newId;
-                    int as = Utils::parseActiveClientUpdate(header, newId);
-                    emit activeClientUpdate(as);
-                }
+            {
+                QString newId;
+                int as = Utils::parseActiveClientUpdate(header, newId);
+                Q_EMIT activeClientUpdate(as);
+            }
             //conv notification; always none?
             Utils::getNextAtomicField(payload, start);
             //evt notification -- this holds the actual message
             QString evtstring = Utils::getNextAtomicFieldForPush(payload, start);
             qDebug() << evtstring;
             if (evtstring.size() > 10) {
-            //evtstring has [evt, None], so we catch only the first value
+                //evtstring has [evt, None], so we catch only the first value
                 Event evt = Utils::parseEvent(Utils::getNextField(evtstring, 1));
                 if (evt.value.valid) {
                     qDebug() << evt.sender.chat_id << " sent " << evt.value.segments[0].value;
                     //conversationModel->addEventToConversation(evt.conversationId, evt);
-                    if (evt.sender.chat_id != myself.chat_id) {
-                        qDebug() << "Message received " << evt.value.segments[0].value;
-                        emit incomingMessage(evt);
-                        //Signal new event only if the actual conversation isn't already visible to the user
-                        //qDebug() << conversationModel->getCid();
-                        qDebug() << evt.conversationId;
-                        qDebug() << evt.notificationLevel;
-                        /*if (evt.notificationLevel==30 && (appPaused || (conversationModel->getCid() != evt.conversationId))) {
+                    //if (evt.sender.chat_id != myself.chat_id) {
+                    qDebug() << "Message received " << evt.value.segments[0].value;
+                    Q_EMIT incomingMessage(evt);
+                    //Signal new event only if the actual conversation isn't already visible to the user
+                    //qDebug() << conversationModel->getCid();
+                    qDebug() << evt.conversationId;
+                    qDebug() << evt.notificationLevel;
+                    /*if (evt.notificationLevel==30 && (appPaused || (conversationModel->getCid() != evt.conversationId))) {
                             rosterModel->addUnreadMsg(evt.conversationId);
                             emit showNotification(evt.value.segments[0].value, evt.sender.chat_id, evt.value.segments[0].value, evt.sender.chat_id);
                         }
@@ -226,7 +210,7 @@ void Channel::parseChannelData(QString sreply)
                             if (evt.notificationLevel==30)
                                 emit updateWM(evt.conversationId);
                         }*/
-                    }
+                    //}
                 }
                 else {
                     qDebug() << "Invalid evt received";
@@ -240,8 +224,8 @@ void Channel::parseChannelData(QString sreply)
             if (typing.size() > 3) {
                 cevt = parseTypingNotification(typing, cevt);
                 //I would know wether myself is typing :)
-                if (!cevt.userId.contains(myself.chat_id))
-                    emit isTyping(cevt.conversationId, cevt.userId, cevt.typingStatus);
+                if (!cevt.userId.contains(mMyself.chat_id))
+                    Q_EMIT isTyping(cevt.conversationId, cevt.userId, cevt.typingStatus);
             }
             //notification level; wasn't this already in the event info?
             QString notifLev = Utils::getNextAtomicField(payload, start);
@@ -280,27 +264,27 @@ void Channel::parseChannelData(QString sreply)
     }
 }
 
-void Channel::nr()
+void Channel::networReadyRead()
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
     //Eventually update cookies, may set S
     bool cookieUpdated = false;
-    foreach(QNetworkCookie cookie, c) {
+    Q_FOREACH (QNetworkCookie cookie, c) {
         qDebug() << cookie.name();
-        for (int i=0; i<session_cookies.size(); i++) {
-            if (session_cookies[i].name() == cookie.name()) {
-                session_cookies[i].setValue(cookie.value());
-                emit cookieUpdateNeeded(cookie);
+        for (int i=0; i<mSessionCookies.size(); i++) {
+            if (mSessionCookies[i].name() == cookie.name()) {
+                mSessionCookies[i].setValue(cookie.value());
+                Q_EMIT cookieUpdateNeeded(cookie);
                 qDebug() << "Updated cookie " << cookie.name();
                 cookieUpdated = true;
             }
         }
     }
     if (cookieUpdated) {
-        nam = new QNetworkAccessManager();
-        emit qnamUpdated(nam);
+        mNetworkAccessManager = new QNetworkAccessManager();
+        Q_EMIT qnamUpdated(mNetworkAccessManager);
     }
 
     QString sreply = reply->read(MAX_READ_BYTES);
@@ -318,26 +302,25 @@ void Channel::nr()
         return;
     }
 
-    if (lastIncompleteParcel!="")
-        sreply = QString(lastIncompleteParcel + sreply);
+    if (!mLastIncompleteParcel.isEmpty())
+        sreply = QString(mLastIncompleteParcel + sreply);
     if (!sreply.endsWith("]\n"))
     {
         qDebug() << "Incomplete parcel";
-        lastIncompleteParcel = sreply;
+        mLastIncompleteParcel = sreply;
         return;
+    } else {
+        mLastIncompleteParcel = "";
     }
-    else lastIncompleteParcel = "";
 
     //if I'm here it means the channel is working fine
-    if (channelError) {
-        emit(channelRestored(lastPushReceived.addMSecs(500)));
-        channelError = false;
+    if (mChannelError) {
+        Q_EMIT channelRestored(mLastPushReceived.addMSecs(500));
+        mChannelError = false;
     }
-    lastPushReceived = QDateTime::currentDateTime();
+    mLastPushReceived = QDateTime::currentDateTime();
 
     parseChannelData(sreply);
-    //if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()!=200)
-      //  longPollRequest();
 }
 
 void Channel::parseSid()
@@ -347,20 +330,20 @@ void Channel::parseSid()
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
     //Eventually update cookies, may set S
     bool cookieUpdated = false;
-    foreach(QNetworkCookie cookie, c) {
+    Q_FOREACH (QNetworkCookie cookie, c) {
         qDebug() << cookie.name();
-        for (int i=0; i<session_cookies.size(); i++) {
-            if (session_cookies[i].name() == cookie.name()) {
-                session_cookies[i].setValue(cookie.value());
-                emit cookieUpdateNeeded(cookie);
+        for (int i=0; i<mSessionCookies.size(); i++) {
+            if (mSessionCookies[i].name() == cookie.name()) {
+                mSessionCookies[i].setValue(cookie.value());
+                Q_EMIT cookieUpdateNeeded(cookie);
                 qDebug() << "Updated cookie " << cookie.name();
                 cookieUpdated = true;
             }
         }
     }
     if (cookieUpdated) {
-        nam = new QNetworkAccessManager();
-        emit qnamUpdated(nam);
+        mNetworkAccessManager = new QNetworkAccessManager();
+        Q_EMIT qnamUpdated(mNetworkAccessManager);
     }
     if (reply->error() == QNetworkReply::NoError) {
         QString rep = reply->readAll();
@@ -376,9 +359,9 @@ void Channel::parseSid()
         tmp = 1;
         //Skip 1
         Utils::getNextAtomicField(zero, tmp);
-        sid = Utils::getNextAtomicField(zero, tmp);
-        sid = sid.mid(1, sid.size()-2);
-        qDebug() << sid;
+        mSid = Utils::getNextAtomicField(zero, tmp);
+        mSid = mSid.mid(1, mSid.size()-2);
+        qDebug() << mSid;
 
         //ROW 1 and 2 discarded
         tmp = 1;
@@ -408,14 +391,14 @@ void Channel::parseSid()
         tmp = 1;
 
         Utils::getNextAtomicField(three, tmp);
-        email = Utils::getNextAtomicField(three, tmp);
-        email = email.mid(1, email.size()-2);
-        QStringList temp = email.split("/");
+        mEmail = Utils::getNextAtomicField(three, tmp);
+        mEmail = mEmail.mid(1, mEmail.size()-2);
+        QStringList temp = mEmail.split("/");
         qDebug() << temp.at(0);
-        email = temp.at(0);
+        mEmail = temp.at(0);
         qDebug() << temp.at(1);
-        header_client = temp.at(1);
-        emit updateClientId(header_client);
+        mHeaderClient = temp.at(1);
+        Q_EMIT updateClientId(mHeaderClient);
 
         //ROW 4
         start2 = rep.indexOf("[", start2);
@@ -435,8 +418,8 @@ void Channel::parseSid()
         tmp = 1;
 
         Utils::getNextAtomicField(four, tmp);
-        gsessionid = Utils::getNextAtomicField(four, tmp);
-        gsessionid = gsessionid.mid(1, gsessionid.size()-2);
+        mGSessionId = Utils::getNextAtomicField(four, tmp);
+        mGSessionId = mGSessionId.mid(1, mGSessionId.size()-2);
 
     }
     else {
@@ -444,13 +427,13 @@ void Channel::parseSid()
         qDebug() << rep;
         qDebug() << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     }
-   //Now the reply should be std
-    if (!channelError) longPollRequest();
+    //Now the reply should be std
+    if (!mChannelError) longPollRequest();
 }
 
 void Channel::slotError(QNetworkReply::NetworkError err)
 {
-    channelError = true;
+    mChannelError = true;
     qDebug() << err;
     qDebug() << "Error, retrying to activate channel";
     //longPollRequest();
@@ -469,41 +452,41 @@ void Channel::slotError(QNetworkReply::NetworkError err)
 
 void Channel::longPollRequest()
 {
-    if (LPrep != NULL) {
-        LPrep->close();
-        delete LPrep;
-        LPrep = NULL;
+    if (mLongPoolRequest != NULL) {
+        mLongPoolRequest->close();
+        delete mLongPoolRequest;
+        mLongPoolRequest = NULL;
     }
     //for (;;) {
-    QString body = "?VER=8&RID=rpc&t=1&CI=0&clid=" + clid + "&prop=" + prop + "&gsessionid=" + gsessionid + "&SID=" + sid + "&ec="+ec;
-    QNetworkRequest req(QUrl(QString("https://talkgadget.google.com" + path + "bind" + body)));
+    QString body = "?VER=8&RID=rpc&t=1&CI=0&clid=" + mClid + "&prop=" + mProp + "&gsessionid=" + mGSessionId + "&SID=" + mSid + "&ec="+mEc;
+    QNetworkRequest req(QUrl(QString("https://talkgadget.google.com" + mPath + "bind" + body)));
     req.setRawHeader("User-Agent", QVariant::fromValue(user_agent).toByteArray());
     req.setRawHeader("Connection", "Keep-Alive");
 
-    req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(session_cookies));
+    req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(mSessionCookies));
     qDebug() << "Making lp req";
-    LPrep = nam->get(req);
-    QObject::connect(LPrep, SIGNAL(readyRead()), this, SLOT(nr()));
-    QObject::connect(LPrep, SIGNAL(finished()), this, SLOT(nrf()));
-    QObject::connect(LPrep,SIGNAL(error(QNetworkReply::NetworkError)),this,SLOT(slotError(QNetworkReply::NetworkError)));
-   // }
+    mLongPoolRequest = mNetworkAccessManager->get(req);
+    QObject::connect(mLongPoolRequest, SIGNAL(readyRead()), this, SLOT(networReadyRead()));
+    QObject::connect(mLongPoolRequest, SIGNAL(finished()), this, SLOT(networkRequestFinished()));
+    QObject::connect(mLongPoolRequest,SIGNAL(error(QNetworkReply::NetworkError)),this,SLOT(slotError(QNetworkReply::NetworkError)));
+    // }
 }
 
 void Channel::fetchNewSid()
 {
     qDebug() << "fetch new sid";
-    QNetworkRequest req(QString("https://talkgadget.google.com" + path + "bind"));
+    QNetworkRequest req(QString("https://talkgadget.google.com" + mPath + "bind"));
     ////qDebug() << req.url().toString();
-    //QVariant body = "{\"VER\":8, \"RID\": 81187, \"clid\": \"" + clid + "\", \"ec\": \"" + ec + "\", \"prop\": \"" + prop + "\"}";
-    QVariant body = "VER=8&RID=81187&clid=" + clid + "&prop=" + prop + "&ec="+ec;
+    //QVariant body = "{\"VER\":8, \"RID\": 81187, \"clid\": \"" + mClid + "\", \"ec\": \"" + mEc + "\", \"prop\": \"" + mProp + "\"}";
+    QVariant body = "VER=8&RID=81187&clid=" + mClid + "&prop=" + mProp + "&ec="+mEc;
     ////qDebug() << body.toString();
     QList<QNetworkCookie> reqCookies;
-    foreach (QNetworkCookie cookie, session_cookies) {
+    Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
         //if (cookie.name()=="SAPISID" || cookie.name()=="SAPISID" || cookie.name()=="HSID" || cookie.name()=="APISID" || cookie.name()=="SID")
-            reqCookies.append(cookie);
+        reqCookies.append(cookie);
     }
     req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(reqCookies));
-    QNetworkReply *rep = nam->post(req, body.toByteArray());
+    QNetworkReply *rep = mNetworkAccessManager->post(req, body.toByteArray());
     QObject::connect(rep, SIGNAL(finished()), this, SLOT(parseSid()));
     ////qDebug() << "posted";
 }
@@ -525,7 +508,7 @@ void Channel::listen()
 
 QDateTime Channel::getLastPushTs()
 {
-    return lastPushReceived;
+    return mLastPushReceived;
 }
 
 void Channel::setAppOpened()

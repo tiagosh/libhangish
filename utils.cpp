@@ -23,9 +23,7 @@ along with Nome-Programma.  If not, see <http://www.gnu.org/licenses/>
 
 #include "utils.h"
 
-Utils::Utils()
-{
-}
+#include <QDebug>
 
 QString Utils::getTextAtomicField(QString conv, int &start)
 {
@@ -35,8 +33,8 @@ QString Utils::getTextAtomicField(QString conv, int &start)
     }
     QString res = conv.mid(start, stop-start);
     //WORKAROUND, FIX ME
-//    if (res.endsWith("\""))
-  //      res = res.left(res.size()-1);
+    //    if (res.endsWith("\""))
+    //      res = res.left(res.size()-1);
 
     start = stop;
     res = res.remove('\\');
@@ -193,7 +191,7 @@ EventValueSegment Utils::parseEventValueSegment(QString segment)
     int start = 1;
     res.type = getNextAtomicField(segment, start).toUInt();
     QString tmp = getTextAtomicField(segment, start);
-   /* WORKAROUND
+    /* WORKAROUND
     * int lastQuote = tmp.lastIndexOf('"');
     if (lastQuote > 0)
         res.value = tmp.mid(1, lastQuote - 1);

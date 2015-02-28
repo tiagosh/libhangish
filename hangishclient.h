@@ -25,95 +25,38 @@ along with Nome-Programma.  If not, see <http://www.gnu.org/licenses/>
 #define CLIENT_H
 
 #include <QDateTime>
+#include <QCryptographicHash>
 
 #include "authenticator.h"
 #include "channel.h"
-#include <QCryptographicHash>
 #include "utils.h"
-//#include "notifier.h"
-
 
 class HangishClient : public QObject
 {
     Q_OBJECT
 
-    Authenticator *auth;
-    QNetworkAccessManager *nam;
-    QNetworkCookieJar cJar;
-    QList<QNetworkCookie> sessionCookies;
-    InitialData iData;
-    QString api_key, header_date, header_version, header_id, channel_path, clid, channel_ec_param, channel_prop_param, sync_timestamp;
-    User myself;
-    Channel *channel;
-    QNetworkCookie pvt;
-    QString cookiePath;
-
-private:
-    //Notifier *notifier;
-    bool needLogin;
-    bool needSync;
-    QDateTime needSyncTS;
-    QDateTime lastSetActive;
-    QList<OutgoingImage> outgoingImages;
-
-    void sendImageMessage(QString convId, QString imgId, QString segments);
-    void performImageUpload(QString url);
-    bool appPaused;
-    void forceChannelCheckAndRestore();
-    bool initCompleted;
-    User parseMySelf(QString sreply);
-    void getPVTToken();
-    User getUserById(QString chatId);
-    User parseEntity(QString input);
-    QList<User> parseClientEntities(QString input);
-    QList<User> parseGroup(QString input);
-    QList<User> users;
-    QList<User> parseUsers(QString userString);
-    QMap<QString, Conversation> conversations;
-
-    //RosterModel *rosterModel;
-    //ConversationModel *conversationModel;
-    //ContactsModel *contactsModel;
-
-    QString getRequestHeader();
-    Participant parseParticipant(QString plist);
-    QList<Participant> parseParticipants(QString plist, QString data);
-    Conversation parseConversationDetails(QString conversation, Conversation res);
-    Conversation parseSelfConversationState(QString scState, Conversation res);
-    Conversation parseConversationAbstract(QString conv, Conversation res);
-    Conversation parseConversation(QString conv, int &start);
-    void parseConversationState(QString conv);
-    User parseUser(QString conv, int &startPos);
-    QList<Conversation> parseConversations(QString conv);
-    void followRedirection(QUrl url);
-    int findPositionFromComma(QString input, int startPos, int commaCount);
-
-    QByteArray getAuthHeader();
-    QNetworkReply * sendRequest(QString function, QString json);
-    void syncAllNewEvents(QDateTime timestamp);
-
 public:
     HangishClient(const QString &cookiePath);
     void initChat(QString pvt);
     Conversation getConvById(const QString &cid);
-    Q_INVOKABLE void sendChatMessage(QString segments, QString conversationId);
-    Q_INVOKABLE void sendImage(QString segments, QString conversationId, QString filename);
-    Q_INVOKABLE QString getSelfChatId();
-    Q_INVOKABLE void sendCredentials(QString uname, QString passwd);
-    Q_INVOKABLE void send2ndFactorPin(QString pin);
-    Q_INVOKABLE void deleteCookies();
-    Q_INVOKABLE void testNotification();
-    Q_INVOKABLE void forceChannelRestore();
-    Q_INVOKABLE void setActiveClient();
-    Q_INVOKABLE void setFocus(QString convId, int status);
-    Q_INVOKABLE void setTyping(QString convId, int status);
-    Q_INVOKABLE void setPresence(bool goingOffline);
-    Q_INVOKABLE void setAppPaused();
-    Q_INVOKABLE void setAppOpened();
+    void sendChatMessage(QString segments, QString conversationId);
+    void sendImage(QString segments, QString conversationId, QString filename);
+    QString getSelfChatId();
+    void sendCredentials(QString uname, QString passwd);
+    void send2ndFactorPin(QString pin);
+    void deleteCookies();
+    void testNotification();
+    void forceChannelRestore();
+    void setActiveClient();
+    void setFocus(QString convId, int status);
+    void setTyping(QString convId, int status);
+    void setPresence(bool goingOffline);
+    void setAppPaused();
+    void setAppOpened();
 
 
 public Q_SLOTS:
-    Q_INVOKABLE void updateWatermark(QString convId);
+    void updateWatermark(QString convId);
     void authenticationDone();
     void initDone();
     void networkReply();
@@ -151,6 +94,54 @@ Q_SIGNALS:
     void showNotification(QString preview, QString summary, QString body, QString sender);
     void authFailed(QString error);
     void incomingMessage(Event);
+
+private:
+    void sendImageMessage(QString convId, QString imgId, QString segments);
+    void performImageUpload(QString url);
+    void forceChannelCheckAndRestore();
+
+    User parseMySelf(QString sreply);
+    void getPVTToken();
+    User getUserById(QString chatId);
+    User parseEntity(QString input);
+    QList<User> parseClientEntities(QString input);
+    QList<User> parseGroup(QString input);
+    QList<User> parseUsers(QString userString);
+
+    QString getRequestHeader();
+    Participant parseParticipant(QString plist);
+    QList<Participant> parseParticipants(QString plist, QString data);
+    Conversation parseConversationDetails(QString conversation, Conversation res);
+    Conversation parseSelfConversationState(QString scState, Conversation res);
+    Conversation parseConversationAbstract(QString conv, Conversation res);
+    Conversation parseConversation(QString conv, int &start);
+    void parseConversationState(QString conv);
+    User parseUser(QString conv, int &startPos);
+    QList<Conversation> parseConversations(QString conv);
+    void followRedirection(QUrl url);
+    int findPositionFromComma(QString input, int startPos, int commaCount);
+
+    QByteArray getAuthHeader();
+    QNetworkReply * sendRequest(QString function, QString json);
+    void syncAllNewEvents(QDateTime timestamp);
+
+    bool mAppPaused;
+    bool mInitCompleted;
+    bool mNeedSync;
+    bool mNeedLogin;
+    QNetworkAccessManager *mNetworkAccessManager;
+    QDateTime mNeedSyncTS;
+    QDateTime mLastSetActive;
+    QList<OutgoingImage> mOutgoingImages;
+    QString mCookiePath;
+    Authenticator *mAuthenticator;
+    QNetworkCookieJar mCookieJar;
+    QList<QNetworkCookie> mSessionCookies;
+    QString mApiKey, mHeaderDate, mHeaderVersion, mHeaderId, mChannelPath, mClid, mChannelEcParam, mChannelPropParam, mSyncTimestamp;
+    User mMyself;
+    Channel *mChannel;
+    QList<User> mUsers;
+    QMap<QString, Conversation> mConversations;
 };
 
 #endif // CLIENT_H

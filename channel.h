@@ -24,37 +24,17 @@ along with Nome-Programma.  If not, see <http://www.gnu.org/licenses/>
 #ifndef CHANNEL_H
 #define CHANNEL_H
 
-#include "utils.h"
-//#include "conversationmodel.h"
-//#include "rostermodel.h"
+#include <QObject>
+#include <QNetworkReply>
+#include <QNetworkCookieJar>
+#include <QNetworkCookie>
+#include <QTimer>
 
-struct ChannelEvent {
-    QString conversationId;
-    bool isTyping;
-    QString userId;
-    int typingStatus;
-};
+#include "utils.h"
 
 class Channel : public QObject
 {
     Q_OBJECT
-    //Used to know wether the network has problems, so that the app doesn't spawn lots of unuseful connections
-    bool channelError;
-    QNetworkReply *LPrep;
-    User myself;
-    //ConversationModel *conversationModel;
-    //RosterModel *rosterModel;
-    QNetworkAccessManager *nam;
-    QNetworkCookieJar cJar;
-    QList<QNetworkCookie> session_cookies;
-    QString sid, clid, ec, path, prop, header_client, email, gsessionid;
-    QString lastIncompleteParcel;
-    QDateTime lastPushReceived;
-
-private:
-    bool appPaused;
-    ChannelEvent parseTypingNotification(QString input, ChannelEvent evt);
-    void fetchNewSid();
 
 public:
     Channel(QNetworkAccessManager *n, QList<QNetworkCookie> cookies, QString ppath, QString pclid, QString pec, QString pprop, User pms);
@@ -67,8 +47,8 @@ public:
 
 public Q_SLOTS:
     void checkChannel();
-    void nr();
-    void nrf();
+    void networReadyRead();
+    void networkRequestFinished();
     void parseSid();
     void slotError(QNetworkReply::NetworkError err);
 
@@ -87,6 +67,19 @@ Q_SIGNALS:
     void showNotification(QString preview, QString summary, QString body, QString sender);
     void incomingMessage(Event);
 
+private:
+    bool appPaused;
+    ChannelEvent parseTypingNotification(QString input, ChannelEvent evt);
+    void fetchNewSid();
+    //Used to know wether the network has problems, so that the app doesn't spawn lots of unuseful connections
+    QNetworkReply *mLongPoolRequest;
+    bool mChannelError;
+    QNetworkAccessManager *mNetworkAccessManager;
+    User mMyself;
+    QList<QNetworkCookie> mSessionCookies;
+    QString mSid, mClid, mEc, mPath, mProp, mHeaderClient, mEmail, mGSessionId;
+    QString mLastIncompleteParcel;
+    QDateTime mLastPushReceived;
 };
 
 #endif // CHANNEL_H

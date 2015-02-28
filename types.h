@@ -21,10 +21,8 @@ along with Nome-Programma.  If not, see <http://www.gnu.org/licenses/>
 */
 
 
-#ifndef STRUCTS_H
-#define STRUCTS_H
-
-#include "qtimports.h"
+#ifndef TYPES_H
+#define TYPES_H
 
 enum ConversationType {
     STICKY_ONE_TO_ONE = 1,
@@ -144,4 +142,11 @@ struct OutgoingImage {
     QString conversationId;
 };
 
-#endif // STRUCTS_H
+struct ChannelEvent {
+    QString conversationId;
+    bool isTyping;
+    QString userId;
+    int typingStatus;
+};
+
+#endif // TYPES_H

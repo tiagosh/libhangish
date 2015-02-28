@@ -24,43 +24,48 @@ along with Nome-Programma.  If not, see <http://www.gnu.org/licenses/>
 #ifndef AUTHENTICATOR_H
 #define AUTHENTICATOR_H
 
-#include "qtimports.h"
+#include <QNetworkAccessManager>
+#include <QNetworkCookie>
+#include <QNetworkCookieJar>
+#include <QNetworkReply>
+#include <QUrl>
 
 class Authenticator : public QObject
 {
     Q_OBJECT
-    QList<QNetworkCookie> sessionCookies;
-    QList<QNetworkCookie> liveSessionCookies;
-
-    QNetworkAccessManager nam;
-    QNetworkCookieJar cJar;
-    QNetworkCookie GALXCookie;
-    QUrl redirection;
-    int auth_phase;
-    QString homePath;
 
 public:
+    Authenticator(const QString &cookiePath);
     void updateCookies(QList<QNetworkCookie> cookies);
-    Authenticator(const QString &path);
     void auth();
     QList<QNetworkCookie> getCookies();
     void send_credentials(QString uname, QString passwd);
     void send2ndFactorPin(QString pin);
 
-private:
-    QString secTok, timeStmp;
-    void getGalxToken();
-    void getAuthCookies();
-    void followRedirection(QUrl url);
-    bool amILoggedIn();
-
 public Q_SLOTS:
-    void cb(QNetworkReply *reply);
+    void networkCallback(QNetworkReply *reply);
 
 Q_SIGNALS:
     void loginNeeded();
     void gotCookies();
     void authFailed(QString error);
+
+private:
+    void getGalxToken();
+    void getAuthCookies();
+    void followRedirection(QUrl url);
+    bool amILoggedIn();
+
+    QList<QNetworkCookie> mSessionCookies;
+    QList<QNetworkCookie> mLiveSessionCookies;
+
+    QNetworkAccessManager mNetworkAccessManager;
+    QNetworkCookieJar mCookieJar;
+    QNetworkCookie mGALXCookie;
+    int mAuthPhase;
+    QString mCookiePath;
+    QString mSecTok;
+    QString mTimeStmp;
 };
 
 #endif // AUTHENTICATOR_H

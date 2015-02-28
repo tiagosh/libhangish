@@ -10,9 +10,5 @@ SOURCES += authenticator.cpp \
     utils.cpp 
 
 HEADERS += \
-    authenticator.h \
     hangishclient.h \
-    channel.h \
-    qtimports.h \
-    utils.h \
-    structs.h
+    types.h
