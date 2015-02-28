@@ -209,7 +209,7 @@ QList<User> HangishClient::parseUsers(QString userString)
 User HangishClient::getUserById(QString chatId)
 {
     //qDebug() << "Searching for user " << chatId;
-    foreach (User u, mUsers)
+    Q_FOREACH (User u, mUsers)
         if (u.chat_id==chatId) {
             u.alreadyParsed = true;
             return u;
@@ -277,9 +277,9 @@ Conversation HangishClient::parseConversationAbstract(QString abstract, Conversa
     //Merge read states with participants
 
     //THIS HOLD INFO ONLY ABOUT MYSELF, NOT NEEDED NOW!
-    foreach (Participant p, res.participants)
+    Q_FOREACH (Participant p, res.participants)
     {
-        foreach (ReadState r, readStates)
+        Q_FOREACH (ReadState r, readStates)
         {
             if (p.user.chat_id == r.userid.chat_id)
             {
@@ -340,15 +340,15 @@ void HangishClient::parseConversationState(QString conv)
     //TODO: test this case
     //    rosterModel->addConversationAbstract(c);
     //}
-    //foreach (Event e, c.events)
+    //Q_FOREACH (Event e, c.events)
     //    conversationModel->addEventToConversation(c.id, e);
 
     if (c.events.size() > 1)
         //More than 1 new message -> show a generic notification
-        emit showNotification(QString(c.events.size() + "new messages"), "Restored channel", "You have new msgs", "sender");
+        Q_EMIT showNotification(QString(c.events.size() + "new messages"), "Restored channel", "You have new msgs", "sender");
     else if (c.events.size() == 1 && c.events[0].notificationLevel == 30)
         //Only 1 new message -> show a specific notification
-        emit showNotification(c.events[0].value.segments[0].value, c.events[0].sender.chat_id, c.events[0].value.segments[0].value, c.events[0].sender.chat_id);
+        Q_EMIT showNotification(c.events[0].value.segments[0].value, c.events[0].sender.chat_id, c.events[0].value.segments[0].value, c.events[0].sender.chat_id);
 }
 
 QList<Conversation> HangishClient::parseConversations(QString conv)
@@ -372,11 +372,11 @@ QList<Conversation> HangishClient::parseConversations(QString conv)
 
     /*
     //Debug info
-    foreach (Conversation c, res) {
+    Q_FOREACH (Conversation c, res) {
         qDebug() << "###### CONV #######";
         qDebug() << c.id;
         qDebug() << c.participants.size();
-        foreach (Participant p, c.participants) {
+        Q_FOREACH (Participant p, c.participants) {
             qDebug() << p.user.chat_id;
         }
     }
@@ -420,7 +420,7 @@ void HangishClient::networkReply()
     QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
     qDebug() << "DBG Got " << c.size() << "from" << reply->url();
-    foreach(QNetworkCookie cookie, c) {
+    Q_FOREACH (QNetworkCookie cookie, c) {
         for (int i=0; i<mSessionCookies.size(); i++) {
             if (mSessionCookies[i].name() == cookie.name()) {
                 qDebug() << "Updating cookie " << cookie.name();
@@ -506,16 +506,16 @@ void HangishClient::networkReply()
 
             //Parse users!
             mUsers = parseUsers(sreply);
-            foreach (User u, mUsers)
+            Q_FOREACH (User u, mUsers)
                 qDebug() << "User: " << u.chat_id << u.display_name;
             //contactsModel->addContact(u);
 
             //Parse conversations
             QList<Conversation> convs = parseConversations(sreply);
-            foreach (Conversation c, convs)
+            Q_FOREACH (Conversation c, convs)
             {
                 c.unread = 0;
-                foreach (Event e, c.events)
+                Q_FOREACH (Event e, c.events)
                     if (e.timestamp > c.lastReadTimestamp)
                         c.unread++;
                 mConversations[c.id] = c;
@@ -523,7 +523,7 @@ void HangishClient::networkReply()
                 //conversationModel->addConversation(c);
             }
             delete reply;
-            emit(initFinished());
+            Q_EMIT initFinished();
         }
     }
     else {
@@ -539,7 +539,7 @@ QByteArray HangishClient::getAuthHeader()
     qint64 time_msec = QDateTime::currentMSecsSinceEpoch();//1000;
     QString auth_string = QString::number(time_msec);
     auth_string += " ";
-    foreach (QNetworkCookie cookie, mSessionCookies) {
+    Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
         if (cookie.name()=="SAPISID")
             auth_string += cookie.value();
     }
@@ -558,7 +558,7 @@ void HangishClient::uploadPerformedReply()
     QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
     qDebug() << "Got " << c.size() << "from" << reply->url();
-    foreach(QNetworkCookie cookie, c) {
+    Q_FOREACH (QNetworkCookie cookie, c) {
         qDebug() << cookie.name();
     }
     QString sreply = reply->readAll();
@@ -607,7 +607,7 @@ void HangishClient::performImageUpload(QString url)
     req.setRawHeader("Content-Length", QByteArray::number(inFile.size()));
 
     QList<QNetworkCookie> reqCookies;
-    foreach (QNetworkCookie cookie, mSessionCookies) {
+    Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
         if (cookie.name()=="SAPISID" || cookie.name()=="SSID" || cookie.name()=="HSID" || cookie.name()=="APISID" || cookie.name()=="SID")
             reqCookies.append(cookie);
     }
@@ -625,7 +625,7 @@ void HangishClient::uploadImageReply()
     QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
     qDebug() << "Got " << c.size() << "from" << reply->url();
-    foreach(QNetworkCookie cookie, c) {
+    Q_FOREACH (QNetworkCookie cookie, c) {
         qDebug() << cookie.name();
     }
     QString sreply = reply->readAll();
@@ -652,7 +652,7 @@ void HangishClient::sendMessageReply() {
     QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
     qDebug() << "Got " << c.size() << "from" << reply->url();
-    foreach(QNetworkCookie cookie, c) {
+    Q_FOREACH (QNetworkCookie cookie, c) {
         qDebug() << cookie.name();
     }
     qDebug() << "Response " << reply->readAll();
@@ -660,11 +660,11 @@ void HangishClient::sendMessageReply() {
         qDebug() << "Message sent correctly";
         Event evt;
         //conversationModel->addSentMessage("convId", evt);
-        emit messageSent();
+        Q_EMIT messageSent();
     }
     else {
         qDebug() << "Problem sending msg";
-        emit messageNotSent();
+        Q_EMIT messageNotSent();
     }
     delete reply;
 }
@@ -681,7 +681,7 @@ QNetworkReply *HangishClient::sendRequest(QString function, QString json) {
     //req.setRawHeader("Content-Length", postDataSize);
 
     QList<QNetworkCookie> reqCookies;
-    foreach (QNetworkCookie cookie, mSessionCookies) {
+    Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
         if (cookie.name()=="SAPISID" || cookie.name()=="SSID" || cookie.name()=="HSID" || cookie.name()=="APISID" || cookie.name()=="SID")
             reqCookies.append(cookie);
     }
@@ -860,7 +860,7 @@ void HangishClient::sendImage(QString segments, QString conversationId, QString 
     req.setRawHeader("Content-Length", QByteArray::number(doc.toJson().size()));
 
     QList<QNetworkCookie> reqCookies;
-    foreach (QNetworkCookie cookie, mSessionCookies) {
+    Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
         if (cookie.name()=="SAPISID" || cookie.name()=="SSID" || cookie.name()=="HSID" || cookie.name()=="APISID" || cookie.name()=="SID")
             reqCookies.append(cookie);
     }
@@ -878,7 +878,7 @@ void HangishClient::syncAllNewEventsReply()
     QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
     qDebug() << "Got " << c.size() << "from" << reply->url();
-    foreach(QNetworkCookie cookie, c) {
+    Q_FOREACH (QNetworkCookie cookie, c) {
         qDebug() << cookie.name();
     }
     QString sreply = reply->readAll();
@@ -1091,7 +1091,7 @@ void HangishClient::pvtReply()
 
         //TODO: make this procedure safe even with more than 1 cookie as answer
         bool updated = false;
-        foreach(QNetworkCookie cookie, c) {
+        Q_FOREACH (QNetworkCookie cookie, c) {
             for (int i=0; i<mSessionCookies.size(); i++) {
                 if (mSessionCookies[i].name() == cookie.name()) {
                     qDebug() << "Updating cookie " << mSessionCookies[i].name();
@@ -1226,12 +1226,12 @@ void HangishClient::deleteCookies()
 void HangishClient::testNotification()
 {
     //qDebug() << "Sending test notif";
-    emit showNotification("preview", "summary", "body", "sender");
+    Q_EMIT showNotification("preview", "summary", "body", "sender");
 }
 
 void HangishClient::channelLostSlot()
 {
-    emit(channelLost());
+    Q_EMIT channelLost();
 }
 
 void HangishClient::isTypingSlot(QString convId, QString chatId, int type)
@@ -1240,7 +1240,7 @@ void HangishClient::isTypingSlot(QString convId, QString chatId, int type)
     Q_UNUSED(chatId)
     Q_UNUSED(type)
     //QString uname = contactsModel->getContactFName(Utils::getChatidFromIdentity(chatId));
-    //emit isTyping(convId, uname, type);
+    //Q_EMIT isTyping(convId, uname, type);
 }
 
 void HangishClient::channelRestoredSlot(QDateTime lastRec)
@@ -1252,7 +1252,7 @@ void HangishClient::channelRestoredSlot(QDateTime lastRec)
     }
     qDebug() << "Chnl restored, gonna sync with " << lastRec.toString();
     syncAllNewEvents(mNeedSyncTS);
-    emit(channelRestored());
+    Q_EMIT channelRestored();
 }
 
 /*void HangishClient::connectivityChanged(QString a, QDBusVariant b)
@@ -1289,7 +1289,7 @@ void HangishClient::forceChannelCheckAndRestore()
 void HangishClient::setAppOpened()
 {
     if (mNeedLogin)
-        emit(loginNeeded());
+        Q_EMIT loginNeeded();
 
     mAppPaused = false;
     if (!mInitCompleted)
@@ -1316,7 +1316,7 @@ void HangishClient::setAppPaused()
 
 void HangishClient::authFailedSlot(QString error)
 {
-    emit authFailed(error);
+    Q_EMIT authFailed(error);
 }
 
 void HangishClient::updateClientId(QString newID)

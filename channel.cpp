@@ -203,12 +203,12 @@ void Channel::parseChannelData(QString sreply)
                     qDebug() << evt.notificationLevel;
                     /*if (evt.notificationLevel==30 && (appPaused || (conversationModel->getCid() != evt.conversationId))) {
                             rosterModel->addUnreadMsg(evt.conversationId);
-                            emit showNotification(evt.value.segments[0].value, evt.sender.chat_id, evt.value.segments[0].value, evt.sender.chat_id);
+                            Q_EMIT showNotification(evt.value.segments[0].value, evt.sender.chat_id, evt.value.segments[0].value, evt.sender.chat_id);
                         }
                         else {
                             //Update watermark, since I've read the message; if notification level this should be the active client
                             if (evt.notificationLevel==30)
-                                emit updateWM(evt.conversationId);
+                                Q_EMIT updateWM(evt.conversationId);
                         }*/
                     //}
                 }
