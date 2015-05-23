@@ -1,536 +1,98 @@
-/*
-
-Hanghish
-Copyright (C) 2015 Daniele Rogora
-
-This file is part of Hangish.
-
-Hangish is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Hangish is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Nome-Programma.  If not, see <http://www.gnu.org/licenses/>
-
-*/
+/**
+ * libhangish
+ * Copyright (C) 2015 Tiago Salem Herrmann
+ * Copyright (C) 2015 Daniele Rogora
+ *
+ * This file is part of libhangish.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QFile>
 #include <QJsonArray>
+#include <QDomDocument>
+#include <QDomNodeList>
+#include <QUrlQuery>
 
 #include "hangishclient.h"
 
-static QString CHAT_INIT_URL = "https://talkgadget.google.com/u/0/talkgadget/_/chat";
-static QString user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.132 Safari/537.36";
-
-//Timeout to send for setactiveclient requests:
-static int ACTIVE_TIMEOUT_SECS = 300;
-//Minimum timeout between subsequent setactiveclient requests:
-static int SETACTIVECLIENT_LIMIT_SECS = 30;
-static QString endpoint = "https://clients6.google.com/chat/v1/";
-static QString ORIGIN_URL = "https://talkgadget.google.com";
-
 HangishClient::HangishClient(const QString &pCookiePath) :
-    mInitCompleted(false),
     mNeedSync(false),
-    mNeedLogin(false),
-    mNetworkAccessManager(new QNetworkAccessManager()),
+    mLastKnownPushTs(0),
     mCookiePath(pCookiePath),
-    mAuthenticator(new Authenticator(mCookiePath))
+    mAuthenticator(new Authenticator(mCookiePath)),
+    mChannel(NULL)
 {
-    QObject::connect(mAuthenticator, SIGNAL(loginNeeded()), this, SLOT(loginNeededSlot()));
-    QObject::connect(mAuthenticator, SIGNAL(gotCookies()), this, SLOT(authenticationDone()));
-    QObject::connect(mAuthenticator, SIGNAL(authFailed(QString)), this, SLOT(authFailedSlot(QString)));
-
-    mAuthenticator->auth();
-
+    qInstallMessageHandler(Utils::hangishMessageOutput);
+    QObject::connect(mAuthenticator, SIGNAL(gotCookies(QMap<QString,QNetworkCookie>)), this, SLOT(onAuthenticationDone(QMap<QString,QNetworkCookie>)));
+    QObject::connect(mAuthenticator, SIGNAL(loginNeeded()), this, SIGNAL(loginNeeded()));
+    QObject::connect(mAuthenticator, SIGNAL(authFailed(AuthenticationStatus,QString)), this, SIGNAL(authFailed(AuthenticationStatus,QString)));
     QObject::connect(this, SIGNAL(initFinished()), this, SLOT(initDone()));
-
-    mNetworkAccessManager->setCookieJar(&mCookieJar);
 }
 
-Conversation HangishClient::parseSelfConversationState(QString scState, Conversation res)
+void HangishClient::initDone()
 {
-    //qDebug() << scState;
-    int start=1;
-    //skip 6 fields
-    for (int i=0; i<6; i++)
-        Utils::getNextAtomicField(scState, start);
-    //Self read state
-    QString ssstate = Utils::getNextAtomicField(scState, start);
-    qDebug() << "ssstate: " << ssstate;
-    int sstart = 1;
-    //This is my ID, not so interesting
-    Utils::getNextAtomicField(ssstate, sstart);
-    //This is the ts representing last time I read
-    ssstate = Utils::getNextAtomicField(ssstate, sstart);
-    qDebug() << "ssstate: " << ssstate;
+    if (mChannel) {
+        hangishDisconnect();
+    }
+    mChannel = new Channel(mSessionCookies, mChannelPath, mHeaderId, mChannelEcParam, mChannelPropParam, mMyself);
+    QObject::connect(mChannel, SIGNAL(channelLost()), this, SIGNAL(channelLost()));
+    QObject::connect(mChannel, SIGNAL(channelRestored(quint64)), this, SLOT(onChannelRestored(quint64)));
+    QObject::connect(mChannel, SIGNAL(updateClientId(QString)), this, SLOT(updateClientId(QString)));
+    QObject::connect(mChannel, SIGNAL(cookieUpdateNeeded(QNetworkCookie)), this, SLOT(cookieUpdateSlot(QNetworkCookie)));
+    QObject::connect(mChannel, SIGNAL(clientBatchUpdate(ClientBatchUpdate&)), this, SLOT(onClientBatchUpdate(ClientBatchUpdate&)));
 
-    res.lastReadTimestamp = QDateTime::fromMSecsSinceEpoch(ssstate.toLongLong() / 1000);
-    qDebug() << res.lastReadTimestamp.toString();
-    //todo: parse this
-    QString status = Utils::getNextAtomicField(scState, start);
-    //qDebug() << status;
-    QString notificationLevel = Utils::getNextAtomicField(scState, start);
-    //qDebug() << notificationLevel;
-    QString views = Utils::getNextAtomicField(scState, start);
-    //qDebug() << views;
-    //TODO:: parse views
-    QString inviter_id = Utils::getNextAtomicField(scState, start);
-    //qDebug() << inviter_id;
-    res.creator.chat_id = inviter_id;
-    QString invitation_ts = Utils::getNextAtomicField(scState, start);
-    //qDebug() << invitation_ts;
-    res.creation_ts.fromMSecsSinceEpoch(invitation_ts.toUInt());
-    QString sort_ts = Utils::getNextAtomicField(scState, start);
-    //qDebug() << sort_ts;
-    QString a_ts = Utils::getNextAtomicField(scState, start);
-    //qDebug() << a_ts;
-    //skip 4 fields
-    for (int i=0; i<4; i++)
-        Utils::getNextAtomicField(scState, start);
+    syncAllNewEvents(mLastKnownPushTs);
+    mChannel->listen();
+}
 
-    return res;
+void HangishClient::hangishDisconnect()
+{
+    QObject::disconnect(mChannel, 0, 0, 0);
+    mChannel->deleteLater();
+    mChannel = NULL;
+}
+
+void HangishClient::hangishConnect(quint64 lastKnownPushTs)
+{
+    mLastKnownPushTs = lastKnownPushTs;
+    mAuthenticator->authenticate();
 }
 
 QString HangishClient::getSelfChatId()
 {
-    return mMyself.chat_id;
-}
-
-User HangishClient::parseEntity(QString input)
-{
-    User res;
-    //qDebug() << "Parsing single entity " << input;
-    int start = 1;
-    for (int i=0; i<8; i++)
-        Utils::getNextAtomicField(input, start);
-    Identity id = Utils::parseIdentity(Utils::getNextAtomicField(input, start));
-    res.chat_id = id.chat_id;
-    res.gaia_id = id.gaia_id;
-    qDebug() << "ID: " << id.chat_id;
-    QString properties = Utils::getNextAtomicField(input, start);
-    start = 1;
-    //Skip type
-    QString tmp;
-    Utils::getNextAtomicField(properties, start);
-    //display name
-    tmp = Utils::getNextAtomicField(properties, start);
-    res.display_name = tmp.mid(1, tmp.size()-2);
-    qDebug() << "DNAME: " << res.display_name;
-    //first name
-    tmp = Utils::getNextAtomicField(properties, start);
-    res.first_name = tmp.mid(1, tmp.size()-2);
-    qDebug() << "FNAME: " << res.first_name;
-    //photo url
-    tmp = Utils::getNextAtomicField(properties, start);
-    res.photo = tmp.mid(1, tmp.size()-2);
-
-    //emails - this is an array, but i take only the first one now
-    QString emails = Utils::getNextAtomicField(properties, start);
-    start=1;
-    tmp = Utils::getNextAtomicField(emails, start);
-    qDebug() << "EMAIL: " << emails;
-    qDebug() << "EMAIL: " << tmp;
-    res.email = tmp.mid(1, tmp.size()-2);
-    qDebug() << "EMAIL: " << res.email;
-    return res;
-}
-
-QList<User> HangishClient::parseClientEntities(QString input)
-{
-    //qDebug() << "Parsing client entities " << input;
-    QList<User> res;
-    int start = 1;
-    for (;;) {
-        QString tmp = Utils::getNextAtomicField(input, start);
-        if (tmp.size() < 10) break;
-        User tmpUser = parseEntity(tmp);
-        if (!getUserById(tmpUser.chat_id).alreadyParsed)
-            res.append(tmpUser);
-        //else //qDebug() << "User already in " << tmpUser.chat_id;
+    if (mMyself.has_id() && mMyself.id().has_chatid()) {
+        return mMyself.id().chatid().c_str();
     }
-    return res;
+    return QString();
 }
 
-QList<User> HangishClient::parseGroup(QString input)
+ClientEntity HangishClient::getMyself()
 {
-    //qDebug() << "Parsinggroup " << input;
-    QList<User> res;
-    int start = 1;
-    //skip 2
-    for (int i=0; i<2; i++)
-        Utils::getNextAtomicField(input, start);
-
-    QString repeatedField = Utils::getNextAtomicField(input, start);
-    start = 1;
-    for (;;) {
-        QString nextEntity = Utils::getNextField(Utils::getNextAtomicField(repeatedField, start), 1);
-        if (nextEntity.size() < 30) break;
-        User tmpUser = parseEntity(nextEntity);
-        if (!getUserById(tmpUser.chat_id).alreadyParsed)
-            res.append(tmpUser);
-    }
-    return res;
+    return mMyself;
 }
 
-QList<User> HangishClient::parseUsers(QString userString)
+ClientEntity HangishClient::getUserById(QString chatId)
 {
-    QList<User> res;
-    //int start = userString.indexOf("</script><script>AF_initDataCallback({key: 'ds:37',");
-    int start = userString.indexOf("</script><script>AF_initDataCallback({key: 'ds:21',");
-    start = userString.indexOf("return [[", start) + strlen("return [[");
-    //Skip 2 fields
-    for (int i=0; i<2; i++)
-        Utils::getNextAtomicField(userString, start);
-
-    QString entities = Utils::getNextAtomicField(userString,start);
-    res.append(parseClientEntities(entities));
-    //Skip 1
-    Utils::getNextAtomicField(userString,start);
-    //Now we have groups; what are these?
-    for (;;) {
-        QString group = Utils::getNextAtomicField(userString,start);
-        //qDebug() << "Will parse group - " << group.size();
-        if (group.size() < 50)
-            break;
-        res.append(parseGroup(group));
-    }
-    return res;
+    return mUsers[chatId];
 }
 
-User HangishClient::getUserById(QString chatId)
+ClientConversationState HangishClient::getConvById(const QString &convId)
 {
-    //qDebug() << "Searching for user " << chatId;
-    Q_FOREACH (User u, mUsers)
-        if (u.chat_id==chatId) {
-            u.alreadyParsed = true;
-            return u;
-        }
-
-    User foo;
-    foo.alreadyParsed = false;
-    foo.gaia_id = foo.chat_id = chatId;
-    foo.display_name = "User not found";
-    return foo;
-}
-
-Participant HangishClient::parseParticipant(QString plist)
-{
-    Participant res;
-    Identity tmp = Utils::parseIdentity(plist);
-    res.user = getUserById(tmp.chat_id);
-    return res;
-}
-
-
-QList<Participant> HangishClient::parseParticipants(QString plist, QString data)
-{
-    Q_UNUSED(data)
-    QList<Participant> res;
-    int start=1;
-    for (;;) {
-        QString part = Utils::getNextAtomicField(plist,start);
-        if (part.size()<10) break;
-        Participant p = parseParticipant(part);
-        res.append(p);
-    }
-    return res;
-}
-
-Conversation HangishClient::parseConversationAbstract(QString abstract, Conversation res)
-{
-    int start = 0;
-    start+=1;
-    //First we have ID
-    QString id = Utils::getNextAtomicField(abstract, start);
-    id = id.mid(2, res.id.size());
-    //qDebug() << "ID: " << id;
-    //Then type
-    //res.type = ConversationType(.mid(1,1).toInt());
-    QString type = Utils::getNextAtomicField(abstract, start);
-    qDebug() << "TYPE: " << type;
-    //Name (optional) -- need to see what happens when it is set
-    QString name = Utils::getNextAtomicField(abstract, start);
-    res.name = name;
-    //qDebug() << "Name: " << res.name;
-    res = parseSelfConversationState(Utils::getNextAtomicField(abstract, start), res);
-    //skip 3 fields
-    for (int i=0; i<3; i++)
-        Utils::getNextAtomicField(abstract, start);
-    //Now I have read_state
-    QList<ReadState> readStates = Utils::parseReadStates(Utils::getNextAtomicField(abstract, start));
-    //skip 4 fields
-    for (int i=0; i<4; i++)
-        Utils::getNextAtomicField(abstract, start);
-    QString current_participants = Utils::getNextAtomicField(abstract, start);
-    QString participants_data    = Utils::getNextAtomicField(abstract, start);
-    res.participants = parseParticipants(current_participants, participants_data);
-
-    //Merge read states with participants
-
-    //THIS HOLD INFO ONLY ABOUT MYSELF, NOT NEEDED NOW!
-    Q_FOREACH (Participant p, res.participants)
-    {
-        Q_FOREACH (ReadState r, readStates)
-        {
-            if (p.user.chat_id == r.userid.chat_id)
-            {
-                p.last_read_timestamp = r.last_read;
-                qDebug() << p.last_read_timestamp.toString();
-                break;
-            }
-        }
-    }
-
-    return res;
-}
-
-Conversation HangishClient::parseConversationDetails(QString conversation, Conversation res)
-{
-    int start = 1;
-    for (;;) {
-        QString tmp_event = Utils::getNextAtomicField(conversation, start);
-        if (tmp_event.size()<10) break;
-        res.events.append(Utils::parseEvent(tmp_event));
-    }
-    return res;
-}
-
-Conversation HangishClient::parseConversation(QString conv, int &start)
-{
-    Conversation res;
-    ////qDebug() << "Conversation: " << conv;
-    int ptr=1;
-    //First we have ID
-    res.id = Utils::getNextAtomicField(conv, ptr);
-    res.id = res.id.mid(2, res.id.size()-5);
-    //qDebug() << "ID: " << res.id;
-    QString abstract = Utils::getNextAtomicField(conv, ptr);
-    res = parseConversationAbstract(abstract, res);
-    QString details = Utils::getNextAtomicField(conv, ptr);
-    res = parseConversationDetails(details, res);
-    start += ptr;
-    return res;
-}
-
-void HangishClient::parseConversationState(QString conv)
-{
-    qDebug() << "CONV_STATE: " << conv;
-    int start = 1;
-
-    Conversation c = parseConversation(conv, start);
-    qDebug() << c.id;
-    qDebug() << c.events.size();
-    mConversations[c.id] = c;
-
-
-    //Now formalize what happened:
-
-    //New messages for existing convs?
-    //if (!rosterModel->conversationExists(c.id)) {
-    //A new conv was created!
-    //TODO: test this case
-    //    rosterModel->addConversationAbstract(c);
-    //}
-    //Q_FOREACH (Event e, c.events)
-    //    conversationModel->addEventToConversation(c.id, e);
-
-    if (c.events.size() > 1)
-        //More than 1 new message -> show a generic notification
-        Q_EMIT showNotification(QString(c.events.size() + "new messages"), "Restored channel", "You have new msgs", "sender");
-    else if (c.events.size() == 1 && c.events[0].notificationLevel == 30)
-        //Only 1 new message -> show a specific notification
-        Q_EMIT showNotification(c.events[0].value.segments[0].value, c.events[0].sender.chat_id, c.events[0].value.segments[0].value, c.events[0].sender.chat_id);
-}
-
-QList<Conversation> HangishClient::parseConversations(QString conv)
-{
-    QList<Conversation> res;
-    //    int start = conv.indexOf("</script><script>AF_initDataCallback({key: 'ds:36',");
-    int start = conv.indexOf("</script><script>AF_initDataCallback({key: 'ds:19',");
-    start = conv.indexOf("return [[", start) + strlen("return [[");
-    //Skip 3 fields
-    for (int i=0; i<3; i++)
-        Utils::getNextAtomicField(conv, start);
-    QString conversations = Utils::getNextField(conv,start);
-    int ptr;
-    int st=1;
-    for (;;) {
-        QString conversation = Utils::getNextAtomicField(conversations,st);
-        if (conversation.size()<10)
-            break;
-        res.append(parseConversation(conversation, ptr));
-    }
-
-    /*
-    //Debug info
-    Q_FOREACH (Conversation c, res) {
-        qDebug() << "###### CONV #######";
-        qDebug() << c.id;
-        qDebug() << c.participants.size();
-        Q_FOREACH (Participant p, c.participants) {
-            qDebug() << p.user.chat_id;
-        }
-    }
-    */
-    return res;
-}
-
-void HangishClient::postReply(QNetworkReply *reply)
-{
-    if (reply->error() == QNetworkReply::NoError) {
-        //qDebug() << "No errors on Post";
-    }
-}
-
-User HangishClient::parseMySelf(QString sreply) {
-    //SELF INFO
-    //int start = sreply.indexOf("AF_initDataCallback({key: 'ds:35'") + strlen("AF_initDataCallback({key: 'ds:35'");
-    int start = sreply.indexOf("AF_initDataCallback({key: 'ds:20'") + strlen("AF_initDataCallback({key: 'ds:20'");
-    start = sreply.indexOf("return ", start) + strlen("return ");
-    sreply = Utils::getNextField(sreply, start);
-    QString self_info = Utils::getNextField(sreply, 1);
-    //qDebug() << "SI: " << self_info;
-    User res;
-    start = 1;
-    //skip 2
-    for (int i=0; i<2; i++)
-        Utils::getNextAtomicField(self_info, start);
-    //And then parse a common user
-    res = parseEntity(Utils::getNextAtomicField(self_info, start));
-    qDebug() << res.chat_id;
-    qDebug() << res.display_name;
-    qDebug() << res.first_name;
-    qDebug() << res.photo;
-
-    return res;
-}
-
-void HangishClient::networkReply()
-{
-    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
-    QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
-    QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
-    qDebug() << "DBG Got " << c.size() << "from" << reply->url();
-    Q_FOREACH (QNetworkCookie cookie, c) {
-        for (int i=0; i<mSessionCookies.size(); i++) {
-            if (mSessionCookies[i].name() == cookie.name()) {
-                qDebug() << "Updating cookie " << cookie.name();
-                mSessionCookies[i].setValue(cookie.value());
-            }
-        }
-    }
-    if (reply->error() == QNetworkReply::NoError) {
-        if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==302) {
-            qDebug() << "Redir";
-            QVariant possibleRedirectUrl =
-                    reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
-            followRedirection(possibleRedirectUrl.toUrl());
-            delete reply;
-        }
-        else {
-            QString sreply = reply->readAll();
-
-            //API KEY
-            int start = sreply.indexOf("AF_initDataCallback({key: 'ds:7'") + strlen("AF_initDataCallback({key: 'ds:7'");
-            //This is safe against chenges of Feb 7th, but maybe it's not that safe against other changes
-            int key_start = sreply.indexOf("client.js\",\"", start) + strlen("client.js\",\"");
-            int key_stop = sreply.indexOf("\"", key_start) + 1;
-            mApiKey = sreply.mid(key_start, key_stop - key_start-1);
-            qDebug() << "API KEY: " << mApiKey;
-            if (mApiKey.contains("AF_initDataKeys") || mApiKey.size() < 10 || mApiKey.size() > 50 || sreply.contains("Logged")) {
-                qDebug() << sreply;
-                qDebug() << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-                //exit(-1);
-                qDebug() << "Auth expired!";
-                //Not smart for sure, but it should be safe
-                deleteCookies();
-            }
-
-            QString tmp;
-            start = sreply.indexOf("AF_initDataCallback({key: 'ds:4'");
-            start = sreply.indexOf("return [[", start) + strlen("return [[");
-            //Skip 1
-            Utils::getNextAtomicField(sreply, start);
-            tmp = Utils::getNextAtomicField(sreply, start);
-            mChannelPath = tmp.mid(1, tmp.size()-2);
-            //Skip 2
-            for (int i=0; i<2; i++) {
-                Utils::getNextAtomicField(sreply, start);
-            }
-            tmp = Utils::getNextAtomicField(sreply, start);
-            mChannelEcParam = tmp.mid(1, tmp.size()-3);
-            for (int i=0; i<mChannelEcParam.size();i++)
-                if (mChannelEcParam.at(i)=='\\')
-                    mChannelEcParam.remove(i, 1);
-            //qDebug() << "channel ec param is " << mChannelEcParam;
-            tmp = Utils::getNextAtomicField(sreply, start);
-            mChannelPropParam = tmp.mid(1, tmp.size()-2);
-            Utils::getNextAtomicField(sreply, start);
-            tmp = Utils::getNextAtomicField(sreply, start);
-            mHeaderId = tmp.mid(1, tmp.size()-2);
-            //mClid = mHeaderId;
-
-            start = sreply.indexOf("AF_initDataCallback({key: 'ds:2'");
-            start = sreply.indexOf("return [[", start) + strlen("return [[");
-            for (int i=0; i<4; i++) {
-                Utils::getNextAtomicField(sreply, start);
-            }
-            tmp = Utils::getNextAtomicField(sreply, start);
-            mHeaderDate = tmp.mid(1, tmp.size()-2);
-            Utils::getNextAtomicField(sreply, start);
-            tmp = Utils::getNextAtomicField(sreply, start);
-            mHeaderVersion = tmp.mid(1, tmp.size()-2);
-
-            qDebug() << "HID " << mHeaderId;
-            qDebug() << "HDA " << mHeaderDate;
-            qDebug() << "HVE " << mHeaderVersion;
-
-            mMyself = parseMySelf(sreply);
-            if (!mMyself.email.contains("@"))
-            {
-                qDebug() << "Error parsing myself info";
-                qDebug() << sreply;
-                //initChat();
-                //return;
-            }
-            //rosterModel->setMySelf(mMyself);
-
-            //Parse users!
-            mUsers = parseUsers(sreply);
-            Q_FOREACH (User u, mUsers)
-                qDebug() << "User: " << u.chat_id << u.display_name;
-            //contactsModel->addContact(u);
-
-            //Parse conversations
-            QList<Conversation> convs = parseConversations(sreply);
-            Q_FOREACH (Conversation c, convs)
-            {
-                c.unread = 0;
-                Q_FOREACH (Event e, c.events)
-                    if (e.timestamp > c.lastReadTimestamp)
-                        c.unread++;
-                mConversations[c.id] = c;
-                //rosterModel->addConversationAbstract(c);
-                //conversationModel->addConversation(c);
-            }
-            delete reply;
-            Q_EMIT initFinished();
-        }
-    }
-    else {
-        //failure
-        //qDebug() << "Failure" << reply->errorString();
-        delete reply;
-    }
+    return mConversations[convId];
 }
 
 QByteArray HangishClient::getAuthHeader()
@@ -549,6 +111,33 @@ QByteArray HangishClient::getAuthHeader()
     res += "_";
     res += QCryptographicHash::hash(auth_string.toUtf8(), QCryptographicHash::Sha1).toHex();
     return res;
+}
+
+void HangishClient::performImageUpload(QString url)
+{
+    OutgoingImage oi = mOutgoingImages.at(0);
+
+    QFile inFile(oi.filename);
+    if (!inFile.open(QIODevice::ReadOnly)) {
+        qDebug() << "File not found";
+        return ;
+    }
+
+    QNetworkRequest req(url);
+    req.setRawHeader("User-Agent", USER_AGENT);
+    req.setRawHeader("X-GUploader-Client-Info", "mechanism=scotty xhr resumable; clientVersion=82480166");
+    req.setRawHeader("content-type", "application/x-www-form-urlencoded;charset=utf-8");
+    req.setRawHeader("Content-Length", QByteArray::number(inFile.size()));
+
+    QList<QNetworkCookie> reqCookies;
+    Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
+        if (cookie.name()=="SAPISID" || cookie.name()=="SSID" || cookie.name()=="HSID" || cookie.name()=="APISID" || cookie.name()=="SID")
+            reqCookies.append(cookie);
+    }
+    req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(reqCookies));
+    QNetworkReply * reply = mNetworkAccessManager.post(req, inFile.readAll());
+    QObject::connect(reply, SIGNAL(finished()), this, SLOT(uploadPerformedReply()));
+
 }
 
 void HangishClient::uploadPerformedReply()
@@ -587,94 +176,16 @@ void HangishClient::uploadPerformedReply()
     else {
         qDebug() << "Problem uploading";
     }
-    delete reply;
+    reply->deleteLater();
 }
 
-void HangishClient::performImageUpload(QString url)
+QNetworkReply *HangishClient::sendRequest(QString function, QString json)
 {
-    OutgoingImage oi = mOutgoingImages.at(0);
-
-    QFile inFile(oi.filename);
-    if (!inFile.open(QIODevice::ReadOnly)) {
-        qDebug() << "File not found";
-        return ;
-    }
-
-    QNetworkRequest req(url);
-    req.setRawHeader("User-Agent", user_agent.toLocal8Bit().data());
-    req.setRawHeader("X-GUploader-Client-Info", "mechanism=scotty xhr resumable; clientVersion=82480166");
-    req.setRawHeader("content-type", "application/x-www-form-urlencoded;charset=utf-8");
-    req.setRawHeader("Content-Length", QByteArray::number(inFile.size()));
-
-    QList<QNetworkCookie> reqCookies;
-    Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
-        if (cookie.name()=="SAPISID" || cookie.name()=="SSID" || cookie.name()=="HSID" || cookie.name()=="APISID" || cookie.name()=="SID")
-            reqCookies.append(cookie);
-    }
-    req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(reqCookies));
-    QNetworkReply * reply = mNetworkAccessManager->post(req, inFile.readAll());
-    QObject::connect(reply, SIGNAL(finished()), this, SLOT(uploadPerformedReply()));
-
-}
-
-void HangishClient::uploadImageReply()
-{
-    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
-    qDebug() << "DbG: " << reply;
-
-    QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
-    QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
-    qDebug() << "Got " << c.size() << "from" << reply->url();
-    Q_FOREACH (QNetworkCookie cookie, c) {
-        qDebug() << cookie.name();
-    }
-    QString sreply = reply->readAll();
-    qDebug() << "Response " << sreply;
-    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
-        qDebug() << "Upload ready";
-        QVariant v = reply->header(QNetworkRequest::LocationHeader);
-        QString uploadUrl = qvariant_cast<QString>(v);
-        qDebug() << uploadUrl;
-        reply->close();
-        reply->deleteLater();
-        delete reply;
-        performImageUpload(uploadUrl);
-    }
-    else {
-        qDebug() << "Problem uploading " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    }
-    //    delete reply;
-}
-
-void HangishClient::sendMessageReply() {
-    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
-
-    QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
-    QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
-    qDebug() << "Got " << c.size() << "from" << reply->url();
-    Q_FOREACH (QNetworkCookie cookie, c) {
-        qDebug() << cookie.name();
-    }
-    qDebug() << "Response " << reply->readAll();
-    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
-        qDebug() << "Message sent correctly";
-        Event evt;
-        //conversationModel->addSentMessage("convId", evt);
-        Q_EMIT messageSent();
-    }
-    else {
-        qDebug() << "Problem sending msg";
-        Q_EMIT messageNotSent();
-    }
-    delete reply;
-}
-
-QNetworkReply *HangishClient::sendRequest(QString function, QString json) {
-    QString url = endpoint + function;
+    QString url = ENDPOINT_URL + function;
     //add params
     QNetworkRequest req(url);
     req.setRawHeader("authorization", getAuthHeader());
-    req.setRawHeader("x-origin", QVariant::fromValue(ORIGIN_URL).toByteArray());
+    req.setRawHeader("x-origin", QByteArray(ORIGIN_URL));
     req.setRawHeader("x-goog-authuser", "0");
     req.setRawHeader("content-type", "application/json+protobuf");
     QByteArray postDataSize = QByteArray::number(json.size());
@@ -686,14 +197,35 @@ QNetworkReply *HangishClient::sendRequest(QString function, QString json) {
             reqCookies.append(cookie);
     }
     req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(reqCookies));
-    url += "?alt=json&key=";
+    url += "?alt=protojson&key=";
     url += mApiKey;
     QByteArray postData;
     //postData.append("{\"alt\": \"json\", \"key\": \"" + mApiKey + "\"}");
     postData.append(json);
     //qDebug() << "Sending request " << url;
-    return mNetworkAccessManager->post(req, postData);
+    return mNetworkAccessManager.post(req, postData);
     //qDebug() << "req sent " << postData;
+}
+
+ClientRequestHeader *HangishClient::getRequestHeader1()
+{
+    ClientRequestHeader *requestHeader =  new ClientRequestHeader;
+    ClientClientVersion *clientVersion = new ClientClientVersion;
+    ClientClientIdentifier *clientIdentifier = new ClientClientIdentifier;
+    clientVersion->set_clientid(ClientClientVersion::QUASAR);
+    clientVersion->set_buildtype(ClientClientVersion::PRODUCTION);
+    clientVersion->set_majorversion(mHeaderVersion.toStdString());
+    clientVersion->set_version(mHeaderDate.toLongLong());
+
+    //clientIdentifier->set_resource(mClid.toStdString());
+    clientIdentifier->set_headerid(mHeaderId.toStdString());
+
+    requestHeader->set_allocated_clientversion(clientVersion);
+    requestHeader->set_allocated_clientidentifier(clientIdentifier);
+
+    requestHeader->set_languagecode("en");
+
+    return requestHeader;
 }
 
 QString HangishClient::getRequestHeader()
@@ -738,7 +270,8 @@ void HangishClient::sendImageMessage(QString convId, QString imgId, QString segm
     QObject::connect(reply, SIGNAL(finished()), this, SLOT(sendMessageReply()));
 }
 
-void HangishClient::sendChatMessage(QString segments, QString conversationId) {
+void HangishClient::sendChatMessage(QString segments, QString conversationId)
+{
     QString seg = "[[0, \"";
     seg += segments;
     seg += "\", [0, 0, 0, 0], [null]]]";
@@ -760,6 +293,30 @@ void HangishClient::sendChatMessage(QString segments, QString conversationId) {
     qDebug() << "gotH " << body;
     QNetworkReply *reply = sendRequest("conversations/sendchatmessage",body);
     QObject::connect(reply, SIGNAL(finished()), this, SLOT(sendMessageReply()));
+}
+
+void HangishClient::sendMessageReply()
+{
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+
+    QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
+    QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
+    qDebug() << "Got " << c.size() << "from" << reply->url();
+    Q_FOREACH (QNetworkCookie cookie, c) {
+        qDebug() << cookie.name();
+    }
+    qDebug() << "Response " << reply->readAll();
+    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
+        qDebug() << "Message sent correctly";
+        //Event evt;
+        //conversationModel->addSentMessage("convId", evt);
+        Q_EMIT messageSent();
+    }
+    else {
+        qDebug() << "Problem sending msg";
+        Q_EMIT messageNotSent();
+    }
+    delete reply;
 }
 
 void HangishClient::sendImage(QString segments, QString conversationId, QString filename)
@@ -854,7 +411,7 @@ void HangishClient::sendImage(QString segments, QString conversationId, QString 
 
     QNetworkRequest req(QUrl("https://docs.google.com/upload/photos/resumable?authuser=0"));
     //req.setRawHeader("authorization", getAuthHeader());
-    req.setRawHeader("User-Agent", user_agent.toLocal8Bit().data());
+    req.setRawHeader("User-Agent", USER_AGENT);
     req.setRawHeader("X-GUploader-Client-Info", "mechanism=scotty xhr resumable; clientVersion=82480166");
     req.setRawHeader("content-type", "application/x-www-form-urlencoded;charset=utf-8");
     req.setRawHeader("Content-Length", QByteArray::number(doc.toJson().size()));
@@ -865,15 +422,15 @@ void HangishClient::sendImage(QString segments, QString conversationId, QString 
             reqCookies.append(cookie);
     }
     req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(reqCookies));
-    QNetworkReply * reply = mNetworkAccessManager->post(req, doc.toJson());
+    QNetworkReply * reply = mNetworkAccessManager.post(req, doc.toJson());
     QObject::connect(reply, SIGNAL(finished()), this, SLOT(uploadImageReply()));
     //Then send the message
 }
 
-void HangishClient::syncAllNewEventsReply()
+void HangishClient::uploadImageReply()
 {
-    //The content of this reply contains CLIENT_CONVERSATION_STATE, such as lost messages
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+    qDebug() << "DbG: " << reply;
 
     QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
@@ -884,35 +441,18 @@ void HangishClient::syncAllNewEventsReply()
     QString sreply = reply->readAll();
     qDebug() << "Response " << sreply;
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
-        qDebug() << "Synced correctly";
-        //Skip csanerp
-        int start = 1;
-        Utils::getNextAtomicField(sreply, start);
-        //Skip response header
-        Utils::getNextAtomicField(sreply, start);
-        //Skip mSyncTimestamp
-        Utils::getNextAtomicField(sreply, start);
-        //Parse the actual data
-        QString cstates = Utils::getNextAtomicField(sreply, start);
-        start = 1;
-        for (;;) {
-            QString cstate = Utils::getNextAtomicField(cstates, start);
-            qDebug() << cstate;
-            if (cstate.size()<10) break;
-            parseConversationState(cstate);
-        }
-        mNeedSync = false;
+        qDebug() << "Upload ready";
+        QVariant v = reply->header(QNetworkRequest::LocationHeader);
+        QString uploadUrl = qvariant_cast<QString>(v);
+        qDebug() << uploadUrl;
+        reply->close();
+        performImageUpload(uploadUrl);
     }
-    delete reply;
-
+    else {
+        qDebug() << "Problem uploading " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    }
+    reply->deleteLater();
 }
-
-/*
-void HangishClient::syncAllNewEventsDataArrval()
-{
-
-}
-*/
 
 void HangishClient::setPresence(bool goingOffline)
 {
@@ -944,16 +484,6 @@ void HangishClient::setPresenceReply()
     }
 }
 
-void HangishClient::setFocusReply()
-{
-    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
-    QString sreply = reply->readAll();
-    qDebug() << "Set focus response " << sreply;
-    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()!=200) {
-        qDebug() << "There was an error setting focus! " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    }
-}
-
 void HangishClient::setFocus(QString convId, int status)
 {
     QString body = "[";
@@ -968,8 +498,20 @@ void HangishClient::setFocus(QString convId, int status)
     QObject::connect(reply, SIGNAL(finished()), this, SLOT(setFocusReply()));
 }
 
+void HangishClient::setFocusReply()
+{
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+    QString sreply = reply->readAll();
+    qDebug() << "Set focus response " << sreply;
+    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()!=200) {
+        qDebug() << "There was an error setting focus! " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    }
+}
+
 void HangishClient::setTyping(QString convId, int status)
 {
+    ClientSetTypingRequest request;
+    //ClientConversationId conversationId = new ClientConversationId();
     QString body = "[";
     body += getRequestHeader();
     body += ", [\"";
@@ -992,33 +534,45 @@ void HangishClient::setTypingReply()
     }
 }
 
-void HangishClient::setActiveClientReply()
+void HangishClient::syncAllNewEvents(quint64 timestamp)
 {
-    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
-    QString sreply = reply->readAll();
-    qDebug() << "Set active client response " << sreply;
-    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()!=200) {
-        qDebug() << "There was an error setting active client! " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    }
-    else {
-        //I've just set this; I can assume I am the active client
-        //notifier->activeClientUpdate(IS_ACTIVE_CLIENT);
-    }
+    ClientSyncAllNewEventsRequest clientSyncAllNewEventsRequest;
+    clientSyncAllNewEventsRequest.set_allocated_requestheader(getRequestHeader1());
+    clientSyncAllNewEventsRequest.set_lastsynctimestamp(timestamp);
+    clientSyncAllNewEventsRequest.set_nomissedeventsexpected(false);
+    clientSyncAllNewEventsRequest.set_maxresponsesizebytes(1048576);
+
+    QNetworkReply *reply = sendRequest("conversations/syncallnewevents", Utils::msgToJsArray(clientSyncAllNewEventsRequest));
+    QObject::connect(reply, SIGNAL(finished()), this, SLOT(syncAllNewEventsReply()));
 }
 
-void HangishClient::syncAllNewEvents(QDateTime timestamp)
+void HangishClient::syncAllNewEventsReply()
 {
-    QString body = "[";
-    body += getRequestHeader();
-    body += ", ";
-    body += QString::number(timestamp.toMSecsSinceEpoch() * 1000);
-    body += ",[], null, [], 0, [], 1048576]";
-    qDebug() << body;
-    QNetworkReply *reply = sendRequest("conversations/syncallnewevents",body);
-    //I shouldn't need this
-    //QObject::connect(reply, SIGNAL(readyRead()), this, SLOT(syncAllNewEventsDataArrval()));
+    //The content of this reply contains CLIENT_CONVERSATION_STATE, such as lost messages
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
 
-    QObject::connect(reply, SIGNAL(finished()), this, SLOT(syncAllNewEventsReply()));
+    QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
+    QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
+    qDebug() << "Got " << c.size() << "from" << reply->url();
+    Q_FOREACH (QNetworkCookie cookie, c) {
+        qDebug() << cookie.name();
+    }
+    QString sreply = reply->readAll();
+
+    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
+        qDebug() << "Synced correctly";
+
+        ClientSyncAllNewEventsResponse csanerp;
+        QVariantList variantListResponse = Utils::jsArrayToVariantList(sreply);
+        if (variantListResponse[0].toString() == "csanerp") {
+            variantListResponse.pop_front();
+            Utils::packToMessage(QVariantList() << variantListResponse, csanerp);
+            Q_EMIT clientSyncAllNewEventsResponse(csanerp);
+            qDebug() << "ClientSyncAllNewEventsResponse: " << csanerp.DebugString().c_str();
+        }
+        mNeedSync = false;
+    }
+    reply->deleteLater();
 }
 
 void HangishClient::setActiveClient()
@@ -1030,7 +584,7 @@ void HangishClient::setActiveClient()
     QString body = "[";
     body += getRequestHeader();
     body += ", " + QString::number(IS_ACTIVE_CLIENT) +" , \"";
-    body += mMyself.email;
+    body += mMyself.properties().email(0).c_str();
     body += "/";
     body += mClid;
     body += "\", ";
@@ -1041,14 +595,17 @@ void HangishClient::setActiveClient()
     QObject::connect(reply, SIGNAL(finished()), this, SLOT(setActiveClientReply()));
 }
 
-void HangishClient::updateWatermarkReply()
+void HangishClient::setActiveClientReply()
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
-
     QString sreply = reply->readAll();
-    qDebug() << "Update watermark response " << sreply;
+    qDebug() << "Set active client response " << sreply;
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()!=200) {
-        qDebug() << "There was an error updating the wm! " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        qDebug() << "There was an error setting active client! " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    }
+    else {
+        //I've just set this; I can assume I am the active client
+        //notifier->activeClientUpdate(IS_ACTIVE_CLIENT);
     }
 }
 
@@ -1068,20 +625,200 @@ void HangishClient::updateWatermark(QString convId)
     qDebug() << body;
     QNetworkReply *reply = sendRequest("conversations/updatewatermark",body);
     QObject::connect(reply, SIGNAL(finished()), this, SLOT(updateWatermarkReply()));
-
-    //rosterModel->setReadConv(convId);
 }
 
+void HangishClient::updateWatermarkReply()
+{
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+
+    QString sreply = reply->readAll();
+    qDebug() << "Update watermark response " << sreply;
+    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()!=200) {
+        qDebug() << "There was an error updating the wm! " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    }
+}
+
+void HangishClient::initChat(QString pvt)
+{
+    QUrlQuery query;
+
+    query.addQueryItem("prop", "hangish");
+    query.addQueryItem("fid", "gtn-roster-iframe-id");
+    query.addQueryItem("ec", "[\"ci:ec\",true,true,false]");
+    query.addQueryItem("pvt", pvt);
+
+    QUrl url(CHAT_INIT_URL);
+    url.setQuery(query);
+    QNetworkRequest req( url );
+    req.setRawHeader("User-Agent", USER_AGENT);
+    req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(mSessionCookies.values()));
+    QNetworkReply * reply = mNetworkAccessManager.get(req);
+    QObject::connect(reply, SIGNAL(finished()), this, SLOT(onInitChatReply()));
+}
 
 void HangishClient::followRedirection(QUrl url)
 {
     QNetworkRequest req( url );
-    req.setRawHeader("User-Agent", user_agent.toLocal8Bit().data());
-    QNetworkReply * reply = mNetworkAccessManager->get(req);
-    QObject::connect(reply, SIGNAL(finished()), this, SLOT(networkReply()));
+    req.setRawHeader("User-Agent", USER_AGENT);
+    req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(mSessionCookies.values()));
+    QNetworkReply * reply = mNetworkAccessManager.get(req);
+    QObject::connect(reply, SIGNAL(finished()), this, SLOT(onInitChatReply()));
 }
 
-void HangishClient::pvtReply()
+void HangishClient::onInitChatReply()
+{
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+    QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
+    QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
+    qDebug() << "DBG Got " << c.size() << "from" << reply->url();
+    Q_FOREACH (QNetworkCookie cookie, c) {
+        if (mSessionCookies.contains(cookie.name())) {
+            qDebug() << "Updating cookie " << cookie.name();
+            mSessionCookies[cookie.name()] = cookie;
+        }
+    }
+
+    if (reply->error() == QNetworkReply::NoError) {
+        qDebug() << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==302) {
+            qDebug() << "Redir";
+            QVariant possibleRedirectUrl =
+                    reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
+            followRedirection(possibleRedirectUrl.toUrl());
+            reply->deleteLater();
+        }
+        else {
+            QString sreply = reply->readAll();
+
+            QRegExp rx("(\\[\\[\"cin:cac\".*\\}\\}\\)\\;)");
+            if (rx.indexIn(sreply) != -1) {
+                QString cincac = rx.cap(1).split("}});")[0];
+                QVariantList list = Utils::jsArrayToVariantList(cincac)[0].toList();
+                if (list[0] =="cin:cac") {
+                    list.removeAt(0);
+                    ChatApiConfiguration chatApiConfiguration;
+                    Utils::packToMessage(list, chatApiConfiguration);
+                    mApiKey = chatApiConfiguration.key().c_str();
+                }
+            }
+            qDebug() << "API KEY: " << mApiKey;
+            if (mApiKey.isEmpty()) {
+                qDebug() << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+                qDebug() << "Auth expired!";
+                //Not smart for sure, but it should be safe
+                deleteCookies();
+            }
+
+            rx.setPattern("(\\[\\[\"cin:bcsc\".*\\}\\}\\)\\;)");
+            if (rx.indexIn(sreply) != -1) {
+                QString cinbcsc = rx.cap(1).split("}});")[0];
+                QVariantList list = Utils::jsArrayToVariantList(cinbcsc)[0].toList();
+                if (list[0] =="cin:bcsc") {
+                    list.removeAt(0);
+                    EcConfiguration ecConfiguration;
+                    Utils::packToMessage(list, ecConfiguration);
+                    mChannelPath = ecConfiguration.channelpath().c_str();
+                    mChannelEcParam = ecConfiguration.ecparam().c_str();
+                    mChannelPropParam = ecConfiguration.propparam().c_str();
+                    mHeaderId = ecConfiguration.headerid().c_str();
+                }
+            }
+
+            rx.setPattern("(\\[\\[\"cin:acc\".*\\}\\}\\)\\;)");
+            if (rx.indexIn(sreply) != -1) {
+                QString cinacc = rx.cap(1).split("}});")[0];
+                QVariantList list = Utils::jsArrayToVariantList(cinacc)[0].toList();
+                if (list[0] =="cin:acc") {
+                    list.removeAt(0);
+                    ChatInitParameters chatInitParameters;
+                    Utils::packToMessage(list, chatInitParameters);
+                    mHeaderDate = chatInitParameters.headerdate().c_str();
+                    mHeaderVersion = chatInitParameters.headerversion().c_str();
+                }
+            }
+
+            qDebug() << "HID " << mHeaderId;
+            qDebug() << "HDA " << mHeaderDate;
+            qDebug() << "HVE " << mHeaderVersion;
+
+            // Parse myself
+            rx.setPattern("(\\[\\[\"cgsirp\".*\\}\\}\\)\\;)");
+            if (rx.indexIn(sreply) != -1) {
+                QString cgsirp = rx.cap(1).split("}});")[0];
+                QVariantList list = Utils::jsArrayToVariantList(cgsirp)[0].toList();
+                if (list[0] =="cgsirp") {
+                    list.removeAt(0);
+                    ClientGetSelfInfoResponse clientGetSelfInfoResponse;
+                    Utils::packToMessage(list, clientGetSelfInfoResponse);
+                    mMyself = clientGetSelfInfoResponse.selfentity();
+                }
+            }
+
+            // Parse Users
+            rx.setPattern("(\\[\\[\"cgserp\".*\\}\\}\\)\\;)");
+            if (rx.indexIn(sreply) != -1) {
+                QString cgserp = rx.cap(1).split("}});")[0];
+                qDebug() << cgserp;
+                QVariantList list = Utils::jsArrayToVariantList(cgserp)[0].toList();
+                if (list[0] =="cgserp") {
+                    list.removeAt(0);
+                    ClientGetSuggestedEntitiesResponse clientGetSuggestedEntitiesResponse;
+                    Utils::packToMessage(list, clientGetSuggestedEntitiesResponse);
+                    for (int i=0; i< clientGetSuggestedEntitiesResponse.entity_size(); i++) {
+                        ClientEntity entity = clientGetSuggestedEntitiesResponse.entity(i);
+                        mUsers[QString(entity.id().chatid().c_str())] = entity;
+                    }
+                }
+            }
+
+            //Parse conversations
+            rx.setPattern("(\\[\\[\"csrcrp\".*\\}\\}\\)\\;)");
+            if (rx.indexIn(sreply) != -1) {
+                QString csrcrp = rx.cap(1).split("}});")[0];
+                QVariantList list = Utils::jsArrayToVariantList(csrcrp)[0].toList();
+                if (list[0] =="csrcrp") {
+                    list.removeAt(0);
+                    ClientSyncRecentConversationsResponse clientSyncRecentConversationsResponse;
+                    Utils::packToMessage(list, clientSyncRecentConversationsResponse);
+                    for (int i=0; i < clientSyncRecentConversationsResponse.conversationstate_size(); i++) {
+                        ClientConversationState conv = clientSyncRecentConversationsResponse.conversationstate(i);
+                        mConversations[QString(conv.conversationid().id().c_str())] = conv;
+                    }
+                    //qDebug() << clientSyncRecentConversationsResponse.DebugString().c_str();
+                }
+            }
+
+            reply->deleteLater();
+            Q_EMIT initFinished();
+        }
+    }
+    else {
+        //failure
+        //qDebug() << "Failure" << reply->errorString();
+        reply->deleteLater();
+    }
+}
+
+void HangishClient::onAuthenticationDone(QMap<QString, QNetworkCookie> cookies)
+{
+    mSessionCookies = cookies;
+    mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
+    getPVTToken();
+}
+
+void HangishClient::getPVTToken()
+{
+    QNetworkRequest req( QUrl( QString("https://talkgadget.google.com/talkgadget/_/extension-start") ) );
+    req.setRawHeader("User-Agent", USER_AGENT);
+
+    if (!mSessionCookies.isEmpty()) {
+        req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(mSessionCookies.values()));
+    }
+    QNetworkReply * reply = mNetworkAccessManager.get(req);
+    QObject::connect(reply, SIGNAL(finished()), this, SLOT(onGetPVTTokenReply()));
+}
+
+void HangishClient::onGetPVTTokenReply()
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
@@ -1089,126 +826,54 @@ void HangishClient::pvtReply()
         QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
         qDebug() << "Got " << c.size() << "cookies from" << reply->url();
 
-        //TODO: make this procedure safe even with more than 1 cookie as answer
-        bool updated = false;
         Q_FOREACH (QNetworkCookie cookie, c) {
-            for (int i=0; i<mSessionCookies.size(); i++) {
-                if (mSessionCookies[i].name() == cookie.name()) {
-                    qDebug() << "Updating cookie " << mSessionCookies[i].name();
-                    mSessionCookies[i].setValue(cookie.value());
-                    updated = true;
-                }
-            }
+            mSessionCookies[cookie.name()] = cookie;
         }
-        if (!updated)
-            mSessionCookies.append(c);
-        //END OF TODO
 
-        QString rep = reply->readAll();
-        int start = 1;
-        Utils::getNextAtomicField(rep, start);
-        QString pvt = Utils::getNextAtomicField(rep, start);
-        QString pvtToken;
-        if (pvt.size() > 10)
-            pvtToken = pvt.mid(1, pvt.size()-2);
+        if (c.size() > 0) {
+            mAuthenticator->updateCookieFile(mSessionCookies.values());
+        }
+
+        PVTToken pvttoken;
+        QVariantList variantListResponse = Utils::jsArrayToVariantList(reply->readAll());
+        Utils::packToMessage(QVariantList() << variantListResponse, pvttoken);
+        qDebug() << "PVTToken: " << pvttoken.DebugString().c_str() << variantListResponse;
 
         reply->close();
-        delete reply;
-        //Why is this causing a segfault? Anyway, QT should destroy this...
-        //nam->deleteLater();
-        mNetworkAccessManager = new QNetworkAccessManager();
-        if (c.size()>0)
-            mAuthenticator->updateCookies(mSessionCookies);
-        else
-            initChat(pvtToken);
+
+        if (!pvttoken.has_token()) {
+            mAuthenticator->getGalxToken();
+        } else {
+            mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
+            initChat(pvttoken.token().c_str());
+        }
     }
     else {
         qDebug() << "Pvt req returned " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         reply->close();
-        delete reply;
     }
-
-}
-
-void HangishClient::initChat(QString pvt)
-{
-    QString surl = QString("https://talkgadget.google.com/u/0/talkgadget/_/chat?prop=hangish&fid=gtn-roster-iframe-id&ec=[\"ci:ec\",true,true,false]");
-    surl += "&pvt=";
-    surl += pvt;
-    QUrl url(surl);
-    QNetworkRequest req( url );
-    req.setRawHeader("User-Agent", user_agent.toLocal8Bit().data());
-    req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(mSessionCookies));
-    QNetworkReply * reply = mNetworkAccessManager->get(req);
-    QObject::connect(reply, SIGNAL(finished()), this, SLOT(networkReply()));
-}
-
-void HangishClient::getPVTToken()
-{
-    QNetworkRequest req( QUrl( QString("https://talkgadget.google.com/talkgadget/_/extension-start") ) );
-    req.setRawHeader("User-Agent", user_agent.toLocal8Bit().data());
-
-    req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(mSessionCookies));
-    QNetworkReply * reply = mNetworkAccessManager->get(req);
-    QObject::connect(reply, SIGNAL(finished()), this, SLOT(pvtReply()));
-}
-
-void HangishClient::authenticationDone()
-{
-    qDebug() << "HangishClient::authenticationDone";
-    mSessionCookies = mAuthenticator->getCookies();
-    getPVTToken();
-}
-
-void HangishClient::qnamUpdatedSlot(QNetworkAccessManager *qnam)
-{
-    qDebug() << "CLT: upd nam";
-    mNetworkAccessManager = qnam;
+    reply->deleteLater();
 }
 
 void HangishClient::cookieUpdateSlot(QNetworkCookie cookie)
 {
     qDebug() << "CLT: upd " << cookie.name();
-    for (int i=0; i<mSessionCookies.size(); i++) {
-        if (mSessionCookies[i].name() == cookie.name()) {
-            qDebug() << "Updating cookie " << mSessionCookies[i].name();
-            mSessionCookies[i].setValue(cookie.value());
-        }
+    if (mSessionCookies.contains(cookie.name())) {
+        mSessionCookies[cookie.name()] = cookie;
     }
-    //auth->updateCookies(mSessionCookies);
 }
 
-void HangishClient::initDone()
+void HangishClient::onClientBatchUpdate(ClientBatchUpdate &cbu)
 {
-    mChannel = new Channel(mNetworkAccessManager, mSessionCookies, mChannelPath, mHeaderId, mChannelEcParam, mChannelPropParam, mMyself);
-    QObject::connect(mChannel, SIGNAL(channelLost()), this, SLOT(channelLostSlot()));
-    QObject::connect(mChannel, SIGNAL(channelRestored(QDateTime)), this, SLOT(channelRestoredSlot(QDateTime)));
-    QObject::connect(mChannel, SIGNAL(isTyping(QString,QString,int)), this, SLOT(isTypingSlot(QString,QString,int)));
-    QObject::connect(mChannel, SIGNAL(updateWM(QString)), this, SLOT(updateWatermark(QString)));
-    QObject::connect(mChannel, SIGNAL(updateClientId(QString)), this, SLOT(updateClientId(QString)));
-    QObject::connect(mChannel, SIGNAL(cookieUpdateNeeded(QNetworkCookie)), this, SLOT(cookieUpdateSlot(QNetworkCookie)));
-    QObject::connect(mChannel, SIGNAL(qnamUpdated(QNetworkAccessManager*)), this, SLOT(qnamUpdatedSlot(QNetworkAccessManager*)));
-    QObject::connect(mChannel, SIGNAL(incomingMessage(Event)), this, SIGNAL(incomingMessage(Event)));
-
-    //notifier = new Notifier(this, contactsModel);
-    //QObject::connect(this, SIGNAL(showNotification(QString,QString,QString,QString)), notifier, SLOT(showNotification(QString,QString,QString,QString)));
-    //QObject::connect(mChannel, SIGNAL(showNotification(QString,QString,QString,QString)), notifier, SLOT(showNotification(QString,QString,QString,QString)));
-    //QObject::connect(mChannel, SIGNAL(activeClientUpdate(int)), notifier, SLOT(activeClientUpdate(int)));
-
-    mChannel->listen();
-    mInitCompleted = true;
-}
-
-void HangishClient::loginNeededSlot()
-{
-    qDebug() << "lneed";
-    //Using this bool to avoid sending signal before ui is opened (which causes the signal to be ignored)
-    mNeedLogin = true;
+    for (int i = 0; i < cbu.stateupdate_size(); i++) {
+        ClientStateUpdate update = cbu.stateupdate(i);
+        Q_EMIT clientStateUpdate(update);
+    }
 }
 
 void HangishClient::sendCredentials(QString uname, QString passwd)
 {
-    mAuthenticator->send_credentials(uname, passwd);
+    mAuthenticator->sendCredentials(uname, passwd);
 }
 
 void HangishClient::send2ndFactorPin(QString pin)
@@ -1223,109 +888,20 @@ void HangishClient::deleteCookies()
     exit(0);
 }
 
-void HangishClient::testNotification()
-{
-    //qDebug() << "Sending test notif";
-    Q_EMIT showNotification("preview", "summary", "body", "sender");
-}
-
-void HangishClient::channelLostSlot()
-{
-    Q_EMIT channelLost();
-}
-
-void HangishClient::isTypingSlot(QString convId, QString chatId, int type)
-{
-    Q_UNUSED(convId)
-    Q_UNUSED(chatId)
-    Q_UNUSED(type)
-    //QString uname = contactsModel->getContactFName(Utils::getChatidFromIdentity(chatId));
-    //Q_EMIT isTyping(convId, uname, type);
-}
-
-void HangishClient::channelRestoredSlot(QDateTime lastRec)
+void HangishClient::onChannelRestored(quint64 lastRec)
 {
     //If there was another pending req use its ts (that should be older)
     if (!mNeedSync) {
         mNeedSync = true;
         mNeedSyncTS = lastRec;
     }
-    qDebug() << "Chnl restored, gonna sync with " << lastRec.toString();
+    qDebug() << "Chnl restored, gonna sync with " << lastRec;
     syncAllNewEvents(mNeedSyncTS);
     Q_EMIT channelRestored();
 }
 
-/*void HangishClient::connectivityChanged(QString a, QDBusVariant b)
-{
-    qDebug() << "Conn changed " << a;
-    qDebug() << b.variant();
-    //Here I know the channel is going to die, so I can speed up things
-
-    // a == Connected -> connectivity change
-    // a == Powered -> toggled wifi
-
-    if (a=="Connected" && b.variant().toBool()==true)
-        mChannel->fastReconnect();
-}*/
-
-void HangishClient::forceChannelRestore()
-{
-    //Ok, channel is dead; don't wait for the timer and try to bring it up again
-    mChannel->fastReconnect();
-}
-
-void HangishClient::forceChannelCheckAndRestore()
-{
-    qDebug() << "Force Checking channel";
-    QDateTime last = mChannel->getLastPushTs();
-    QDateTime now = QDateTime::currentDateTime();
-    //Checking for 17 secs in order to avoid rounding problems and small delays
-    if (last.addSecs(17) < now) {
-        qDebug() << "Reactivating";
-        forceChannelRestore();
-    }
-}
-
-void HangishClient::setAppOpened()
-{
-    if (mNeedLogin)
-        Q_EMIT loginNeeded();
-
-    mAppPaused = false;
-    if (!mInitCompleted)
-        return;
-
-    QString convId; //= conversationModel->getCid();
-    if (convId!="")
-        updateWatermark(convId);
-
-    setActiveClient();
-    //setPresence(false);
-    mChannel->setAppOpened();
-    forceChannelCheckAndRestore();
-}
-
-void HangishClient::setAppPaused()
-{
-    if (!mInitCompleted)
-        return;
-    mChannel->setAppPaused();
-    //setPresence(true);
-    mAppPaused = true;
-}
-
-void HangishClient::authFailedSlot(QString error)
-{
-    Q_EMIT authFailed(error);
-}
-
 void HangishClient::updateClientId(QString newID)
 {
-    qDebug() << "Updating mClid " << newID;
+    qDebug() << "Updating mClid " << newID << sender();
     mClid = newID;
-}
-
-Conversation HangishClient::getConvById(const QString &convId)
-{
-    return mConversations[convId];
 }

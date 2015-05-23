@@ -1,44 +1,44 @@
-/*
-
-Hanghish
-Copyright (C) 2015 Daniele Rogora
-
-This file is part of Hangish.
-
-Hangish is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Hangish is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Nome-Programma.  If not, see <http://www.gnu.org/licenses/>
-
-*/
-
+/**
+ * libhangish
+ * Copyright (C) 2015 Tiago Salem Herrmann
+ * Copyright (C) 2015 Daniele Rogora
+ *
+ * This file is part of libhangish.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include <QNetworkCookieJar>
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QFile>
+#include <QUrlQuery>
 
 #include "authenticator.h"
-
-static QString user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.132 Safari/537.36";
-static QString SECONDFACTOR_URL = "https://accounts.google.com/SecondFactor";
+#include "types.h"
 
 
-Authenticator::Authenticator(const QString &cookiePath) : mAuthPhase(0)
+Authenticator::Authenticator(const QString &cookiePath) : mAuthPhase(AUTH_PHASE_INITIAL)
 {
     mCookiePath = cookiePath;
+    QObject::connect(&mNetworkAccessManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(networkCallback(QNetworkReply *)));
 }
 
-void Authenticator::auth()
+void Authenticator::authenticate()
 {
+    mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
+    mSessionCookies.clear();
     QFile cookieFile(mCookiePath);
     if (cookieFile.exists()) {
         cookieFile.open(QIODevice::ReadOnly | QIODevice::Text);
@@ -53,44 +53,53 @@ void Authenticator::auth()
             tmp.setName(QVariant(s).toByteArray());
             tmp.setValue(obj.value(s).toVariant().toByteArray());
             tmp.setDomain(".google.com");
-
-            mSessionCookies.append(tmp);
+            mSessionCookies[tmp.name()] = tmp;
         }
-        Q_EMIT gotCookies();
+        Q_EMIT gotCookies(mSessionCookies);
     } else {
-        mAuthPhase = 0;
-        QObject::connect(&mNetworkAccessManager, SIGNAL(finished(QNetworkReply*)), this, SLOT(networkCallback(QNetworkReply *)));
-        mNetworkAccessManager.setCookieJar(&mCookieJar);
-        Q_EMIT loginNeeded();
         getGalxToken();
     }
 }
 
-void Authenticator::networkCallback(QNetworkReply *reply) {
+void Authenticator::networkCallback(QNetworkReply *reply)
+{
     QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
-    mSessionCookies.append(c);
-
-    if (reply->error() == QNetworkReply::NoError) {
-        if (mAuthPhase==1) {
-            QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
-            QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
-            if (c.at(1).name()=="GALX") {
-                mGALXCookie = c.at(1);
-                delete reply;
-            }
+    Q_FOREACH (QNetworkCookie cookie, c) {
+        if (!mSessionCookies.contains(cookie.name())) {
+            mSessionCookies[cookie.name()] = cookie;
         }
-        else if (mAuthPhase==2) {
+    }
+
+    qDebug() << "Authenticator::networkCallback" << mAuthPhase << mSessionCookies;
+    if (reply->error() == QNetworkReply::NoError) {
+        switch (mAuthPhase) {
+        case AUTH_PHASE_GALX_REQUESTED:
+        {
+            QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
+            QList<QNetworkCookie> cookies = qvariant_cast<QList<QNetworkCookie> >(v);
+            Q_FOREACH(QNetworkCookie cookie, cookies) {
+                if (cookie.name()=="GALX") {
+                    mGALXCookie = cookie;
+                    Q_EMIT loginNeeded();
+                }
+            }
+            break;
+        }
+        case AUTH_PHASE_CREDENTIALS_SENT:
+        {
             if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==302) {
                 QVariant possibleRedirectUrl =
                         reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
-
+                qDebug() << "redirected" << possibleRedirectUrl.toUrl();
                 followRedirection(possibleRedirectUrl.toUrl());
-            }
-            else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
-                if (amILoggedIn())
-                    getAuthCookies();
-                else if (reply->url().toString().startsWith(SECONDFACTOR_URL)) {
+            } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
+                if (amILoggedIn()) {
+                    qDebug() << "logged in";
+                    saveAuthCookies();
+                    Q_EMIT gotCookies(mSessionCookies);
+                } else if (reply->url().toString().startsWith(SECONDFACTOR_URL)) {
+                    qDebug() << "not logged in";
                     //2nd factor auth
                     qDebug() << "Auth failed " << reply->url();
                     QString ssreply = reply->readAll();
@@ -106,80 +115,101 @@ void Authenticator::networkCallback(QNetworkReply *reply) {
                     start = ssreply.indexOf("'", start)+1;
                     stop = ssreply.indexOf("'", start);
                     mTimeStmp = ssreply.mid(start, stop-start);
-                    qDebug() << ssreply;
                     qDebug() << mSecTok;
                     qDebug() << mTimeStmp;
-                    Q_EMIT authFailed("2nd factor needed");
-                }
-                else {
+                    Q_EMIT authFailed(AUTH_NEED_2FACTOR_PIN);
+                } else /*if (reply->url().toString().startsWith(SERVICE_LOGIN_AUTH_URL)) {
+                    qDebug() << mSessionCookies;
+                    getGalxToken();
+                } else*/ {
                     //Something went wrong
                     qDebug() << "Auth failed " << reply->url();
-                    Q_EMIT authFailed("Wrong uname/passwd");
+                    mSessionCookies.clear();
+                    Q_EMIT authFailed(AUTH_WRONG_CREDENTIALS);
                 }
-            }
-            else {
+            } else {
                 //Something went wrong
                 qDebug() << "Auth failed " << reply->errorString();
-                Q_EMIT authFailed(reply->errorString());
+                Q_EMIT authFailed(AUTH_UNKNOWN_ERROR, reply->errorString());
             }
+            break;
         }
-        else if (mAuthPhase==6) {
-            QString ssreply = reply->readAll();
-            qDebug() << ssreply;
+        case AUTH_PHASE_2FACTOR_PIN_SENT:
+        {
             //2nd factor response
             if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
                 //TODO: is this really a consistent check for everyone?
-                if (amILoggedIn())
-                    getAuthCookies();
-                else {
-                    Q_EMIT authFailed(reply->url().toString());
+                if (amILoggedIn()) {
+                    saveAuthCookies();
+                    Q_EMIT gotCookies(mSessionCookies);
+                } else {
+                    Q_EMIT authFailed(AUTH_WRONG_2FACTOR_PIN, reply->url().toString());
                 }
-            }
-            else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==302) {
+            } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==302) {
                 QVariant possibleRedirectUrl =
                         reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
 
                 followRedirection(possibleRedirectUrl.toUrl());
-            }
-            else {
+            } else {
                 qDebug() << "2nd factor error";
-                Q_EMIT authFailed("Error sending pin");
+                Q_EMIT authFailed(AUTH_UNKNOWN_ERROR);
             }
+            break;
+        }
+        default:
+            qDebug() << "Auth phase not recognized";
+        }
+    } else {
+        qDebug() << "ERROR" << mAuthPhase;
+        if (mAuthPhase == AUTH_PHASE_GALX_REQUESTED) {
+            Q_EMIT authFailed(AUTH_CANT_GET_GALX_TOKEN, reply->errorString());
         }
     }
-    else {
-        //failure
-        delete reply;
-    }
-
+    reply->deleteLater();
+    qDebug() << "end network callback";
 }
 
 void Authenticator::followRedirection(QUrl url)
 {
     QNetworkRequest req( url );
-    req.setRawHeader("User-Agent", user_agent.toLocal8Bit().data());
-    req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(mSessionCookies));
+    req.setRawHeader("User-Agent", USER_AGENT);
+    if (!mSessionCookies.isEmpty()) {
+        req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(mSessionCookies.values()));
+    }
     mNetworkAccessManager.get(req);
 }
 
 void Authenticator::getGalxToken()
 {
-    mAuthPhase = 1;
-    QNetworkRequest req( QUrl( QString("https://accounts.google.com/ServiceLogin?passive=true&skipvpage=true&continue=https://talkgadget.google.com/talkgadget/gauth?verify%3Dtrue&authuser=0") ) );
-    req.setRawHeader("User-Agent", user_agent.toLocal8Bit().data());
+    qDebug() << "Authenticator::getGalxToken";
+    mSessionCookies.clear();
+    mAuthPhase = AUTH_PHASE_GALX_REQUESTED;
+
+    QUrl url(SERVICE_LOGIN_URL);
+    QUrlQuery query;
+
+    query.addQueryItem("passive", "true");
+    query.addQueryItem("skipvpage", "true");
+    query.addQueryItem("continue", "https://talkgadget.google.com/talkgadget/gauth?verify=true");
+    query.addQueryItem("authuser", "0");
+
+    url.setQuery(query);
+
+    QNetworkRequest req(url);
+    req.setRawHeader("User-Agent", USER_AGENT);
     mNetworkAccessManager.get(req);
 }
 
-void Authenticator::getAuthCookies()
+void Authenticator::saveAuthCookies()
 {
-    mAuthPhase = 3;
     QJsonObject obj;
+    QMap<QString, QNetworkCookie> liveSessionCookies;
     Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
         //Let's save the relevant cookies
-        if (cookie.name()=="S" || !cookie.isSessionCookie() && cookie.domain().contains("google.com") ) {
+        if (cookie.name()=="S" || (!cookie.isSessionCookie() && cookie.domain().contains("google.com"))) {
             qDebug() << "GOOD: " << cookie.name() << " - " << cookie.domain() << " - " << cookie.isSessionCookie() << " - " << cookie.expirationDate().toString();
             obj[cookie.name()] = QJsonValue( QString(cookie.value()) );
-            mLiveSessionCookies.append(cookie);
+            liveSessionCookies[cookie.name()] = cookie;
         }
     }
     QJsonDocument doc(obj);
@@ -191,55 +221,74 @@ void Authenticator::getAuthCookies()
     cookieFile.close();
 
     qDebug() << "Written cookies to " << mCookiePath;
-    mAuthPhase=5;
-    mSessionCookies = mLiveSessionCookies;
-    mLiveSessionCookies.clear();
-    Q_EMIT gotCookies();
+    mSessionCookies = liveSessionCookies;
 }
 
-void Authenticator::send_credentials(QString uname, QString passwd)
+void Authenticator::sendCredentials(QString uname, QString passwd)
 {
-    mAuthPhase = 2;
-    QString r = QString("GALX="+QString(mGALXCookie.value()));
-    r+=QString("&Email="+uname);
-    r+=QString("&Passwd="+passwd);
-    r+="&bgresponse=js_disabled&dnConn=0&signIn=Accedi&checkedDomains=youtube&PersistentCookie=yes&rmShown=1&pstMsg=0&skipvpage=true&continue=https://talkgadget.google.com/talkgadget/gauth?verify=true";
-    QByteArray reqString(r.toUtf8());
-    QNetworkRequest req( QUrl( QString("https://accounts.google.com/ServiceLoginAuth") ) );
+    qDebug() << "sendCredentials";
+    mAuthPhase = AUTH_PHASE_CREDENTIALS_SENT;
+
+    QUrlQuery query;
+    // TODO: check what fields are actually needed
+    query.addQueryItem("GALX", QString(mGALXCookie.value()));
+    query.addQueryItem("Email", uname);
+    query.addQueryItem("Passwd", passwd);
+    query.addQueryItem("bgresponse", "js_disabled");
+    query.addQueryItem("dnConn", "0");
+    query.addQueryItem("signIn", "Accedi");
+    query.addQueryItem("checkedDomains", "youtube");
+    query.addQueryItem("PersistentCookie", "yes");
+    query.addQueryItem("rmShown", "1");
+    query.addQueryItem("pstMsg", "0");
+    query.addQueryItem("skipvpage", "true");
+    query.addQueryItem("continue", "https://talkgadget.google.com/talkgadget/gauth?verify=true");
+
+    QNetworkRequest req(QUrl ( SERVICE_LOGIN_AUTH_URL ));
     req.setRawHeader("Content-Type", "application/x-www-form-urlencoded");
-    mNetworkAccessManager.post(req, reqString);
+    mNetworkAccessManager.post(req, query.toString(QUrl::FullyEncoded).toUtf8());
 }
 
 void Authenticator::send2ndFactorPin(QString pin)
 {
-    mAuthPhase = 6;
-    QString r = QString("timeStmp=" + mTimeStmp + "&secTok="+mSecTok);
-    r+=QString("&smsUserPin="+pin);
-    r+="&smsVerifyPin=Verify&smsToken=&checkedConnection=youtube:73:0&checkedDomains=youtube&PersistentCookie=on&PersistentOptionSelection=1&pstMsg=0&skipvpage=true";
-    QByteArray reqString(r.toUtf8());
-    QNetworkRequest req( QUrl( QString("https://accounts.google.com/SecondFactor") ) );
-    req.setRawHeader("Content-Type", "application/x-www-form-urlencoded");
-    mNetworkAccessManager.post(req, reqString);
-}
+    mAuthPhase = AUTH_PHASE_2FACTOR_PIN_SENT;
 
-QList<QNetworkCookie> Authenticator::getCookies()
-{
-    return mSessionCookies;
+    QUrlQuery query;
+    // TODO: check what fields are actually needed
+    query.addQueryItem("timeStmp", mTimeStmp);
+    query.addQueryItem("secTok", mSecTok);
+    query.addQueryItem("smsUserPin", pin);
+    query.addQueryItem("smsVerifyPin", "Verify");
+    query.addQueryItem("smsToken", "");
+    query.addQueryItem("checkedConnection", "youtube:73:0");
+    query.addQueryItem("checkedDomains", "youtube");
+    query.addQueryItem("PersistentCookie", "on");
+    query.addQueryItem("PersistentOptionSelection", "1");
+    query.addQueryItem("pstMsg", "0");
+    query.addQueryItem("skipvpage", "true");
+
+    QNetworkRequest req( QUrl( SECONDFACTOR_URL ) );
+    req.setRawHeader("Content-Type", "application/x-www-form-urlencoded");
+    mNetworkAccessManager.post(req, query.toString(QUrl::FullyEncoded).toUtf8());
 }
 
 bool Authenticator::amILoggedIn()
 {
     int i = 0;
     Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
-        if (cookie.name()=="APISID" || cookie.name()=="HSID" || cookie.name()=="S" || cookie.name()=="SAPISID" || cookie.name()=="SID" || cookie.name()=="SSID")
+        qDebug() << cookie.name();
+        if (cookie.name()=="APISID" ||
+                cookie.name()=="HSID" ||
+                cookie.name()=="SAPISID" ||
+                cookie.name()=="SID" ||
+                cookie.name()=="SSID") {
             i++;
+        }
     }
-    if (i>=6)
-        return true;
-    return false;
+    return (i >= 5);
 }
 
-void Authenticator::updateCookies(QList<QNetworkCookie> cookies)
+void Authenticator::updateCookieFile(QList<QNetworkCookie> cookies)
 {
     QJsonObject obj;
     mSessionCookies.clear();
@@ -248,21 +297,17 @@ void Authenticator::updateCookies(QList<QNetworkCookie> cookies)
         cookieFile.open(QIODevice::ReadWrite | QIODevice::Text);
         cookieFile.resize(0);
         Q_FOREACH (QNetworkCookie cookie, cookies) {
-            qDebug() << "GOOD: " << cookie.name() << " - " << cookie.domain() << " - " << cookie.isSessionCookie() << " - " << cookie.expirationDate().toString();
+            qDebug() << "GOOD: " << cookie.name() << " : "  << cookie.value()<<  " - " << cookie.domain() << " - " << cookie.isSessionCookie() << " - " << cookie.expirationDate().toString();
             obj[cookie.name()] = QJsonValue( QString(cookie.value()) );
-            mSessionCookies.append(cookie);
+            mSessionCookies[cookie.name()] = cookie;
         }
         QJsonDocument doc(obj);
         QFile cookieFile(mCookiePath);
-        if ( cookieFile.open(QIODevice::WriteOnly))
-        {
+        if ( cookieFile.open(QIODevice::WriteOnly)) {
             cookieFile.write(doc.toJson(), doc.toJson().size());
         }
         cookieFile.close();
 
         qDebug() << "Written cookies to " << mCookiePath;
-        mAuthPhase=5;
-
-        Q_EMIT gotCookies();
     }
 }

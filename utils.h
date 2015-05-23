@@ -1,64 +1,66 @@
-/*
-
-Hanghish
-Copyright (C) 2015 Daniele Rogora
-
-This file is part of Hangish.
-
-Hangish is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Hangish is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with Nome-Programma.  If not, see <http://www.gnu.org/licenses/>
-
-*/
-
+/**
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2015 Tiago Salem Herrmann
+ * Copyright (c) 2014 N.Sukegawa
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
 
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <google/protobuf/descriptor.pb.h>
+#include <google/protobuf/message.h>
 #include <QString>
-#include <QDateTime>
+#include <QVariantList>
 #include "types.h"
+
+using namespace google::protobuf;
+using google::protobuf::Message;
+
 
 class Utils
 {
+
 public:
-    static Identity parseIdentity(QString input);
-    static int skipTextFields(QString input, int startPos);
-    static int skipFields(QString input, int startPos);
-    static int skipFieldsForPush(QString input, int startPos);
-    static QString getNextAtomicField(QString conv, int &start);
-    static QString getNextAtomicFieldForPush(QString conv, int &start);
-    static QString getNextField(QString conv, int start);
-    static QString getTextAtomicField(QString conv, int &start);
-    static int findPositionFromComma(QString input, int startPos, int commaCount);
+    static QVariantList jsArrayToVariantList(const QString &jsArray);
+    static bool packToMessage(const QVariantList& fields, Message& msg);
+    static QString msgToJsArray(Message &msg);
+    static void hangishMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg);
 
-    static Event parseEvent(QString conv);
-    static EventValueSegment parseEventValueSegment(QString segment);
-    static QList<EventValueSegment> parseTexts(QString segments);
-    static EventAttachmentSegment parseEventValueAttachment(QString att);
-    static QList<EventAttachmentSegment> parseAttachments(QString attachments);
-    static EventValue parseEventValue(QString input);
-    static QString getFullUrlFromImageAttach(QString data);
-    static QString getPreviewUrlFromImageAttach(QString data);
+private:
+    static void setMessage(const Reflection& ref,
+                           Message& msg,
+                           const FieldDescriptor* field,
+                           const QVariant& value);
 
-    static QString getChatidFromIdentity(QString identity);
+    static void setReflectionValue(const Reflection& ref,
+                            Message& msg,
+                            const FieldDescriptor* field,
+                            const QVariant& value);
 
-    static int parseNotificationLevel(QString input);
+    static void setReflectionRepeatedValue(const Reflection& ref,
+                                    Message& msg,
+                                    const FieldDescriptor* field,
+                                    const QVariantList& list,
+                                    int size);
 
-    static int parseActiveClientUpdate(QString input, QString &newId);
-
-    static ReadState parseReadState(QString input);
-    static QList<ReadState> parseReadStates(QString input);
-    static ReadState parseReadStateNotification(QString input);
 };
 
 #endif // UTILS_H
