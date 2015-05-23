@@ -1,0 +1,1881 @@
+enum ActiveClientState {
+    NO_ACTIVE_CLIENT                                                    =   0;
+    IS_ACTIVE_CLIENT                                                    =   1;
+    OTHER_CLIENT_IS_ACTIVE                                              =   2;
+}
+
+
+message Attachment {
+    optional EmbedClientItem embedItem                                  =   1;
+}
+
+
+message ClientAddUserRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationId conversationId                        =   2;
+    repeated ClientInviteeId inviteeId                                  =   3;
+    optional uint64 clientGeneratedId                                   =   4;
+    optional ClientEventRequestHeader eventRequestHeader                =   5;
+}
+
+
+message ClientAddUserResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    repeated ClientInviteeError inviteeError                            =   2;
+    optional uint64 timestamp                                           =   3;
+    optional string eventId                                             =   4;
+    required ClientEvent createdEvent                                   =   5;
+    optional ClientConversation updatedConversion                       =   6;
+}
+
+
+message ClientArchiveSettings {
+    optional bool isBabelUser                                           =   1;
+}
+
+
+message ClientAvailability {
+    optional bool availableOnDesktop                                    =   1;
+    optional bool availableOnMobile                                     =   2;
+    optional bool reachable                                             =   3;
+    optional bool available                                             =   4;
+}
+
+
+message ClientBatchUpdate {
+    repeated ClientStateUpdate stateUpdate                              =   1;
+}
+
+
+message ClientBlockNotification {
+    repeated ClientBlockStateChange blockStateChange                    =   1;
+}
+
+
+enum ClientBlockState {
+    UNKNOWN_BLOCK_STATE                                                 =   0;
+    BLOCK                                                               =   1;
+    UNBLOCK                                                             =   2;
+}
+
+
+message ClientBlockStateChange {
+    optional ClientParticipantId participantId                          =   1;
+    optional ClientBlockState newBlockState                             =   2;
+}
+
+
+message ClientChatMessage {
+    optional bool dummy                                                =   1;
+    repeated ClientEventAnnotation annotation                          =   2;
+    required ClientMessageContent messageContent                       =   3;
+}
+
+
+message ClientClientIdentifier {
+    optional string resource                                            =   1;
+    optional string headerId                                            =   2;
+}
+
+
+message ClientClientInstrumentationInfo {
+    optional int64 chatMessageSequenceNumber                            =   1;
+}
+
+
+message ClientClientPresenceState {
+    optional ClientClientIdentifier identifier                          =   1;
+    optional ClientPresenceStateSetting.ClientPresenceState state       =   2;
+    optional int64 expirationTimestamp                                  =   3;
+}
+
+
+message ClientClientVersion {
+    optional ClientId clientId                                          =   1;
+    optional ClientBuildType buildType                                  =   2;
+    optional string majorVersion                                        =   3;
+    optional int64 version                                              =   4;
+    optional string deviceOsVersion                                     =   5;
+    optional string deviceHardware                                      =   6;
+
+
+    enum ClientBuildType {
+        UNKNOWN_CLIENT_BUILD_TYPE                                       =   0;
+        DEVELOPER                                                       =   1;
+        DOGFOOD                                                         =   2;
+        PRODUCTION                                                      =   3;
+    }
+
+
+    enum ClientId {
+        UNKNOWN_CLIENT_ID                                               =   0;
+        ANDROID                                                         =   1;
+        IOS                                                             =   2;
+        QUASAR                                                          =   3;
+        WEB_SUPERMOLES                                                  =   4;
+        WEB_SUPERMOLES_OZ                                               =   5;
+        WEB_SUPERMOLES_GMAIL                                            =   6;
+        BOT                                                             =   7;
+    }
+}
+
+
+message ClientConfigurationBit {
+    optional ClientConfigurationBitType configurationBitType            =   1;
+    optional bool value                                                 =   2;
+}
+
+
+message ClientConfigurationBitError {
+    optional ClientConfigurationBitType configurationBitType            =   1;
+    optional string errorDescription                                    =   2;
+}
+
+
+enum ClientConfigurationBitType {
+    QUASAR_MARKETING_PROMO_DISMISSED                                    =   0;
+    GPLUS_SIGNUP_PROMO_DISMISSED                                        =   1;
+    CHAT_WITH_CIRCLES_ACCEPTED                                          =   2;
+    CHAT_WITH_CIRCLES_PROMO_DISMISSED                                   =   3;
+    ALLOWED_FOR_DOMAIN                                                  =   4;
+    GMAIL_CHAT_ARCHIVE_ENABLED                                          =   5;
+    GPLUS_UPGRADE_ALLOWED_FOR_DOMAIN                                    =   6;
+}
+
+
+message ClientConversation {
+    optional ClientConversationId id                                    =   1;
+    optional ClientConversationType type                                =   2;
+    optional string name                                                =   3;
+    optional ClientUserConversationState selfConversationState          =   4;
+    repeated ClientParticipant participant                              =   5;
+    repeated ClientParticipant inactiveParticipant                      =   6;
+    optional bool dummy                                                 =   7;
+    repeated ClientConversationParticipantData participantData          =   8;
+    optional bool hasActiveHangout                                      =   9;
+    optional ClientOffTheRecordStatus otrStatus                         =   10;
+    optional ClientOffTheRecordToggle otrToggle                         =   11;
+    optional bool conversationHistorySupported                          =   12;
+    repeated ClientParticipantId currentParticipant                     =   13;
+    repeated ClientUserReadState readState                              =   14;
+    optional bool isTemporary                                           =   15;
+}
+
+
+message ClientUserConversationState {
+    optional bool dummy                                                 =   1;
+    optional uint64 clientGeneratedId                                   =   2;
+    optional bool dummy2                                                =   3;
+    optional bool dummy3                                                =   4;
+    optional bool dummy4                                                =   5;
+    optional int32 unreadEventCount                                     =   6;
+    optional ClientUserReadState selfReadState                          =   7;
+    optional ClientConversationStatus status                            =   8;
+    optional ClientNotificationLevel notificationLevel                  =   9;
+    repeated ClientConversationView view                                =   10;
+    optional ClientParticipantId inviterId                              =   11;
+    optional int64 inviteTimestamp                                      =   12;
+    optional int64 sortTimestamp                                        =   13;
+    optional int64 activeTimestamp                                      =   14;
+    optional InvitationAffinity inviteAffinity                          =   15;
+}
+
+
+enum InvitationAffinity {
+    HIGH                                                                =   0;
+    LOW                                                                 =   1;
+}
+
+
+message ClientConversationId {
+    optional string id                                                  =   1;
+}
+
+
+message ClientConversationNotification {
+    optional ClientConversation conversation                            =   1;
+}
+
+
+message ClientConversationParticipantData {
+    optional ClientParticipantId id                                     =   1;
+    optional string fallbackName                                        =   2;
+}
+
+
+message ClientConversationRename {
+    optional string newName                                             =   1;
+    optional string oldName                                             =   2;
+}
+
+
+message ClientConversationSpec {
+    optional ClientConversationId conversationId                        =   1;
+    repeated ClientParticipantId participantId                          =   2;
+    repeated ClientInviteeId inviteeId                                  =   3;
+}
+
+
+message ClientConversationState {
+    optional ClientConversationId conversationId                        =   1;
+    optional ClientConversation conversation                            =   2;
+    repeated ClientEvent event                                          =   3;
+    optional bool mustQuerySeparately                                   =   4;
+    optional ClientEventContinuationToken eventContinuationToken        =   5;
+    optional uint64 leaveTimestamp                                      =   6;
+    repeated ClientDeleteAction deleteAction                            =   7;
+}
+
+
+enum ClientConversationStatus {
+    UNKNOWN_CONVERSATION_STATUS                                         =   0;
+    INVITED                                                             =   1;
+    ACTIVE                                                              =   2;
+    LEFT                                                                =   3;
+}
+
+
+enum ClientConversationType {
+    UNKNOWN_CONVERSATION_TYPE                                           =   0;
+    STICKY_ONE_TO_ONE                                                   =   1;
+    GROUP                                                               =   2;
+}
+
+
+enum ClientConversationView {
+    UNKNOWN_CONVERSATION_VIEW                                           =   0;
+    INBOX_VIEW                                                          =   1;
+    ARCHIVED_VIEW                                                       =   2;
+}
+
+
+message ClientConversationViewModification {
+    optional ClientConversationId conversationId                        =   1;
+    optional ClientConversationView oldView                             =   2;
+    optional ClientConversationView newView                             =   3;
+}
+
+
+message ClientCreateConversationRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationType type                                =   2;
+    optional uint64 clientGeneratedId                                   =   3;
+    optional string name                                                =   4;
+    repeated ClientInviteeId inviteeId                                  =   5;
+}
+
+
+message ClientCreateConversationResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional ClientConversation conversation                            =   2;
+    repeated ClientInviteeError inviteeError                            =   3;
+    optional int64 messageTimestamp                                     =   4;
+    optional string messageId                                           =   5;
+    repeated ClientMediaUploadInfo mediaUploadInfo                      =   6;
+    optional bool newConversationCreated                                =   7;
+}
+
+
+message ClientDeleteAction {
+    optional uint64 deleteActionTimestamp                               =   1;
+    optional uint64 deleteUpperBoundTimestamp                           =   2;
+}
+
+
+message ClientDeleteActionNotification {
+    optional ClientConversationId conversationId                        =   1;
+    optional ClientDeleteAction deleteAction                            =   2;
+}
+
+
+message ClientDeleteConversationRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional uint64 deleteUpperBoundTimestamp                           =   3;
+}
+
+
+message ClientDeleteConversationResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional ClientDeleteAction deleteAction                            =   2;
+}
+
+
+message ClientDesktopOffSetting {
+    optional bool desktopOff                                            =   1;
+}
+
+
+message ClientDesktopOffState {
+    optional bool desktopOff                                            =   1;
+    optional int64 setTimestamp                                         =   2;
+}
+
+
+enum ClientDeviceType {
+    ANDROID                                                             =   0;
+    IOS                                                                 =   1;
+    GLASS                                                               =   2;
+    PSTN                                                                =   3;
+}
+
+
+enum ClientDiscoverabilityStatus {
+    UNKNOWN_DISCOVERABILITY_STATUS                                      =   0;
+    OPTED_IN_AND_DISCOVERABLE                                           =   1;
+    OPTED_IN_BUT_NOT_DISCOVERABLE                                       =   2;
+    OPTED_OUT                                                           =   3;
+}
+
+
+message ClientDndSetting {
+    optional bool doNotDisturb                                          =   1;
+    optional uint64 timeoutSecs                                         =   2;
+}
+
+
+message ClientDndState {
+    optional bool doNotDisturb                                          =   1;
+    optional int64 expirationTimestamp                                  =   2;
+    optional int64 setTimestamp                                         =   3;
+}
+
+
+message ClientDoNotDisturbSetting {
+    optional bool doNotDisturb                                          =   1;
+    optional uint64 expirationTimestamp                                 =   2;
+}
+
+
+message ClientEasterEgg {
+    optional string message                                             =   1;
+}
+
+
+message ClientEasterEggNotification {
+    optional ClientParticipantId senderId                               =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional ClientEasterEgg easterEgg                                  =   3;
+}
+
+
+message ClientEntity {
+    optional string entityId                                            =   1;
+    optional ClientGmailCirclePerson circlePerson                       =   2;
+    optional bytes deprecated3                                          =   3;
+    optional bytes deprecated4                                          =   4;
+    optional ClientAvailability availability                            =   5;
+    optional bool dummy                                                 =   6;
+    optional bool invalid                                               =   7;
+    optional ClientPresence presence                                    =   8;
+    optional ClientParticipantId id                                     =   9;
+    optional ClientEntityProperties properties                          =   10;
+    optional bool blocked                                               =   11;
+}
+
+
+enum ClientEntityFilterType {
+    GOOGLE_PLUS_PERSON                                                  =   0;
+    GOOGLE_PLUS_PUBLIC_PROFILE                                          =   1;
+    GOOGLE_PLUS_CIRCLE                                                  =   2;
+    XMPP_CONTACT                                                        =   3;
+}
+
+
+message ClientEntityId {
+    optional string gaiaId                                              =   1;
+    optional string federatedXmppId                                     =   2;
+    optional string circleId                                            =   3;
+    optional string chatId                                              =   4;
+}
+
+
+message ClientEntityLookupSpec {
+    optional string gaiaId                                              =   1;
+    optional string jid                                                 =   2;
+    optional string email                                               =   3;
+    optional string phone                                               =   4;
+    optional string chatId                                              =   5;
+}
+
+
+message ClientEntityProperties {
+    optional ProfileType type                                           =   1;
+    optional string displayName                                         =   2;
+    optional string firstName                                           =   3;
+    optional string photoUrl                                            =   4;
+    repeated string email                                               =   5;
+    repeated string phone                                               =   6;
+    optional string location                                            =   7;
+    optional string organization                                        =   8;
+    optional string role                                                =   9;
+    optional bool inUsersDomain                                         =   10;
+    optional Gender gender                                              =   11;
+
+
+    enum Gender {
+        UNKNOWN                                                         =   0;
+        MALE                                                            =   1;
+        FEMALE                                                          =   2;
+    }
+
+
+    enum ProfileType {
+        NONE                                                            =   0;
+        ES_USER                                                         =   1;
+        PAGE                                                            =   2;
+    }
+}
+
+
+message ClientEvent {
+    optional ClientConversationId conversationId                        =   1;
+    optional ClientParticipantId senderId                               =   2;
+    optional uint64 timestamp                                           =   3;
+    optional ClientUserEventState selfEventState                        =   4;
+    optional bool dummy1                                                =   5;
+    optional ClientSourceType sourceType                                =   6;
+    required ClientChatMessage chatMessage                              =   7;
+    optional bool dummy                                                 =   8;
+    optional ClientMembershipChange membershipChange                    =   9;
+    optional ClientConversationRename conversationRename                =   10;
+    optional ClientHangoutEvent hangoutEvent                            =   11;
+    optional string eventId                                             =   12;
+    optional int64 expirationTimestamp                                  =   13;
+    optional ClientOtrModification otrModification                      =   14;
+    optional bool advancesSortTimestamp                                 =   15;
+    optional ClientOffTheRecordStatus eventOtr                          =   16;
+    optional bool persisted                                             =   17;
+}
+
+
+message ClientUserEventState {
+    optional ClientParticipantId userId                                 =   1;
+    optional uint64 clientGeneratedId                                   =   2;
+    optional ClientNotificationLevel notificationLevel                  =   3;
+}
+
+
+message ClientEventAnnotation {
+    optional int32 type                                                 =   1;
+    optional string value                                               =   2;
+}
+
+
+message ClientEventContinuationToken {
+    optional string eventId                                             =   1;
+    optional bytes storageContinuationToken                             =   2;
+    optional uint64 eventTimestamp                                      =   3;
+}
+
+
+message ClientEventHeader {
+    optional ClientConversationId conversationId                        =   1;
+    optional ClientParticipantId senderId                               =   2;
+    optional uint64 timestamp                                           =   3;
+    optional string eventId                                             =   4;
+    optional uint64 expirationTimestamp                                 =   5;
+}
+
+
+message ClientEventNotification {
+    required ClientEvent event                                          =   1;
+}
+
+
+message ClientEventRequestHeader {
+    optional ClientConversationId conversationId                        =   1;
+    optional uint64 clientGeneratedId                                   =   2;
+    optional ClientOffTheRecordStatus expectedOtr                       =   3;
+}
+
+
+message ClientExistingMedia {
+    optional Photo photo                                                =   1;
+}
+
+
+message Photo {
+    optional string PhotoId                                             =   1;
+    optional bool deleteAlbumlessSourcePhoto                            =   2;
+}
+
+
+message ClientFinishPhoneNumberVerificationRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional PhoneNumber phoneNumber                                    =   2;
+    optional string code                                                =   3;
+    optional bool discoverable                                          =   4;
+    repeated PhoneNumber additionalDiscoverablePhoneNumber              =   5;
+    optional ClientPhoneNumberVerificationContext phoneNumberVerificationContext    =   6;
+}
+
+
+message ClientFinishPhoneNumberVerificationResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+}
+
+
+enum ClientFocusType {
+    UNKNOWN_FOCUS                                                       =   0;
+    FOCUS                                                               =   1;
+    UNFOCUS                                                             =   2;
+}
+
+
+message ClientGetConversationRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationSpec conversationSpec                    =   2;
+    optional bool includeConversationMetadata                           =   3;
+    optional bool includeEvent                                          =   4;
+    optional bool dummy                                                 =   5;
+    optional int32 maxEventsPerConversation                             =   6;
+    optional ClientEventContinuationToken eventContinuationToken        =   7;
+}
+
+
+message ClientGetConversationResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    required ClientConversationState conversationState                  =   2;
+    optional ClientGetConversationError error                           =   3;
+}
+
+
+enum ClientGetConversationError {
+    INVALID_CONTINUATION_TOKEN                                          =   0;
+}
+
+
+message ClientGetEntityByIdRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientEntityLookupSpec lookupSpec                          =   2;
+    repeated ClientEntityLookupSpec batchLookupSpec                     =   3;
+}
+
+
+message ClientGetEntityByIdResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    repeated ClientEntity entity                                        =   2;
+}
+
+
+message ClientGetSelfInfoRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+}
+
+
+message ClientGetSelfInfoResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional ClientEntity selfEntity                                    =   2;
+    optional bool isKnownMinor                                          =   3;
+    repeated ClientClientPresenceState clientPresence                   =   4;
+    optional ClientDndState dndState                                    =   5;
+    optional ClientDesktopOffSetting desktopOffSetting                  =   6;
+    optional ClientPhoneData phoneData                                  =   7;
+    repeated ClientConfigurationBit configurationBit                    =   8;
+    optional ClientDesktopOffState desktopOffState                      =   9;
+    optional bool googlePlusUser                                        =   10;
+}
+
+
+message ClientGetSuggestedEntitiesRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    repeated ClientEntityId givenEntityId                               =   2;
+    repeated ClientEntityFilterType entityFilterType                    =   3;
+    optional int32 maxCount                                             =   4;
+    optional bool includeAvailability                                   =   5;
+    repeated ClientParticipantId givenId                                =   6;
+}
+
+
+message ClientGetSuggestedEntitiesResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    repeated ClientEntity entity                                        =   2;
+    optional bool scoringFailed                                         =   3;
+}
+
+
+message ClientGmailCircleMemberProperties {
+    optional string displayName                                         =   1;
+    optional string photoUrl                                            =   9;
+    optional string firstName                                           =   31;
+}
+
+
+message ClientGmailCirclePerson {
+    optional ClientGmailCircleMemberProperties memberProperties         =   3;
+}
+
+
+message ClientHangoutEvent {
+    optional ClientHangoutEventType eventType                           =   1;
+    repeated ClientParticipantId participantId                          =   2;
+    optional int64 hangoutDurationSecs                                  =   3;
+    optional ClientConversationId transferredConversationId             =   4;
+    optional int64 refreshTimeoutSecs                                   =   5;
+    optional bool isPeriodicRefresh                                     =   6;
+}
+
+
+enum ClientHangoutEventType {
+    START_HANGOUT                                                       =   0;
+    END_HANGOUT                                                         =   1;
+    JOIN_HANGOUT                                                        =   2;
+    LEAVE_HANGOUT                                                       =   3;
+    ONGOING_HANGOUT                                                     =   4;
+    HANGOUT_COMING_SOON                                                 =   5;
+}
+
+
+enum ClientHangoutNotificationStatus {
+    ACCEPTED                                                            =   0;
+    IGNORED                                                             =   1;
+}
+
+
+message ClientInvitationState {
+    optional uint32 unreadInviteCount                                   =   1;
+    optional uint64 latestReadTimestamp                                 =   2;
+}
+
+
+message ClientInvitationWatermarkNotification {
+    optional ClientInvitationState state                                =   1;
+}
+
+
+message ClientInviteeError {
+    optional ClientInviteeId inviteeId                                  =   1;
+    optional string firstName                                           =   2;
+    optional string fullName                                            =   3;
+    optional ClientStatus status                                        =   4;
+    optional string errorDescription                                    =   5;
+
+    enum ClientStatus {
+        INVITED_ACTIVE_PARTICIPANT                                      =   0;
+        INVITED_INACTIVE_PARTICIPANT                                    =   1;
+    }
+}
+
+
+message ClientInviteeId {
+    optional string gaiaId                                              =   1;
+    optional string circleId                                            =   2;
+    optional string chatId                                              =   3;
+    optional string fallbackName                                        =   4;
+}
+
+
+message ClientLocalConversationState {
+    optional bool dummy                                                 =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional bool dummy2                                                =   3;
+    repeated string recentEventId                                       =   4;
+}
+
+
+message ClientMediaUploadInfo {
+    required Attachment attachment                                      =   1;
+}
+
+
+message ClientMembershipChange {
+    optional ClientMembershipChangeType type                            =   1;
+    repeated ClientParticipant participant                              =   2;
+    repeated ClientParticipantId participantId                          =   3;
+}
+
+
+enum ClientMembershipChangeType {
+    JOIN                                                                =   0;
+    LEAVE                                                               =   1;
+}
+
+
+message ClientMessageContent {
+    repeated Segment segment                                            =   1;
+    repeated Attachment attachment                                      =   2;
+}
+
+
+message ClientModifyConversationViewRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional ClientConversationView newView                             =   3;
+    optional uint64 lastEventTimestamp                                  =   4;
+}
+
+
+message ClientModifyConversationViewResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+}
+
+
+message ClientModifyOtrStatusRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional ClientOffTheRecordStatus otrStatus                         =   3;
+    optional uint64 clientGeneratedId                                   =   4;
+    optional ClientEventRequestHeader eventRequestHeader                =   5;
+}
+
+
+message ClientModifyOtrStatusResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional uint64 timestamp                                           =   2;
+    optional string eventId                                             =   3;
+    required ClientEvent createdEvent                                   =   4;
+    optional ClientConversation updatedConversation                     =   5;
+    optional bool otrUnmodified                                         =   6;
+}
+
+
+enum ClientNotificationLevel {
+    QUIET                                                               =   10;
+    DING                                                                =   1;
+    RING                                                                =   30;
+}
+
+
+message ClientNotificationSettings {
+    optional ClientDoNotDisturbSetting dndSettings                      =   1;
+}
+
+
+enum ClientOffTheRecordStatus {
+    OFF_THE_RECORD                                                      =   1;
+    ON_THE_RECORD                                                       =   2;
+}
+
+
+enum ClientOffTheRecordToggle {
+    ENABLED                                                             =   0;
+    DISABLED                                                            =   1;
+}
+
+
+message ClientOffnetworkAddress {
+    optional Type type                                                  =   1;
+    optional string phone                                               =   2;
+    optional string email                                               =   3;
+
+
+    enum Type {
+        PHONE                                                           =   0;
+        EMAIL                                                           =   1;
+    }
+}
+
+
+message ClientOtrModification {
+    optional ClientOffTheRecordStatus oldOtrStatus                      =   1;
+    optional ClientOffTheRecordStatus newOtrStatus                      =   2;
+    optional ClientOffTheRecordToggle oldOtrToggle                      =   3;
+    optional ClientOffTheRecordToggle newOtrToggle                      =   4;
+}
+
+
+message ClientParticipant {
+    optional ClientParticipantId id                                     =   1;
+    optional string firstName                                           =   2;
+    optional string fullName                                            =   3;
+    optional string profilePhotoUrl                                     =   4;
+}
+
+
+message ClientParticipantId {
+    optional string gaiaId                                              =   1;
+    optional string chatId                                              =   2;
+}
+
+
+message ClientPhone {
+    optional PhoneNumber phoneNumber                                    =   1;
+    optional bool googleVoice                                           =   2;
+    optional ClientVerificationStatus verificationStatus                =   3;
+    optional bool discoverable                                          =   4;
+    optional ClientDiscoverabilityStatus discoverabilityStatus          =   5;
+}
+
+
+message ClientPhoneData {
+    repeated ClientPhone phone                                          =   1;
+}
+
+
+message ClientPhoneNumberVerificationContext { }
+
+
+message ClientPresence {
+    optional bool reachable                                             =   1;
+    optional bool available                                             =   2;
+}
+
+
+message ClientPresenceError {
+    optional ClientStatus status                                        =   1;
+    optional string errorDescription                                    =   2;
+
+
+    enum ClientStatus {
+        UNKNOWN                                                         =   0;
+    }
+}
+
+
+message ClientPresenceNotification {
+    repeated ClientPresenceResult presence                              =   1;
+}
+
+
+message ClientPresenceResult {
+    optional ClientParticipantId userId                                 =   1;
+    optional ClientPresence presence                                    =   2;
+    optional ClientPresenceError error                                  =   3;
+}
+
+
+message ClientPresenceStateSetting {
+    optional int64 timeoutSecs                                          =   1;
+    optional ClientPresenceState presenceState                          =   2;
+
+
+    enum ClientPresenceState {
+        NONE                                                            =   0;
+        MOBILE                                                          =   1;
+        DESKTOP_IDLE                                                    =   30;
+        DESKTOP_ACTIVE                                                  =   40;
+    }
+}
+
+
+message ClientQueryPresenceRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    repeated ClientParticipantId participantId                          =   2;
+    repeated ClientFieldMask fieldMask                                  =   3;
+
+
+    enum ClientFieldMask {
+        REACHABILITY                                                    =   0;
+        AVAILABILITY                                                    =   1;
+        STATUS_MESSAGE                                                  =   2;
+    }
+}
+
+
+message ClientQueryPresenceResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    repeated ClientPresenceResult presenceResult                        =   2;
+}
+
+
+message ClientRegisterDeviceRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientDeviceType deviceType                                =   2;
+    optional ClientRegistrationType registrationType                    =   3;
+    optional string locale                                              =   4;
+    optional string stateUpdateVersion                                  =   5;
+    optional string iosAppId                                            =   7;
+    optional bytes iosToken                                             =   8;
+    optional int64 androidId                                            =   9;
+    optional string androidRegistrationId                               =   10;
+    repeated string iosCapability                                       =   11;
+    repeated string androidCapability                                   =   12;
+    optional string pstnNumber                                          =   13;
+    repeated string pstnCapability                                      =   14;
+    optional string name                                                =   15;
+    optional string androidAppId                                        =   16;
+    optional string androidDeveloperAccount                             =   17;
+    optional string iosDeviceId                                         =   18;
+    repeated string glassCapability                                     =   19;
+    optional string pstnAppId                                           =   20;
+    optional string unregisterOnBehalfOfGaiaId                          =   21;
+}
+
+
+message ClientRegisterDeviceResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional ClientUpgradeType upgradeType                              =   2;
+    optional string upgradeExplanationUrl                               =   3;
+    optional string fullJid                                             =   5;
+}
+
+
+enum ClientRegistrationType {
+    REGISTER                                                            =   0;
+    UNREGISTER                                                          =   1;
+}
+
+
+message ClientRemoveUserRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional ClientParticipantId participantId                          =   3;
+    optional uint64 clientGeneratedId                                   =   4;
+    optional ClientEventRequestHeader eventRequestHeader                =   5;
+}
+
+
+message ClientRemoveUserResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional uint64 timestamp                                           =   2;
+    optional string eventId                                             =   3;
+    required ClientEvent createdEvent                                   =   4;
+    optional ClientConversation updatedConversation                     =   5;
+}
+
+
+message ClientRenameConversationRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional string newName                                             =   3;
+    optional uint64 clientGeneratedId                                   =   4;
+    optional ClientEventRequestHeader eventRequestHeader                =   5;
+}
+
+
+message ClientRenameConversationResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional uint64 timestamp                                           =   2;
+    optional string eventId                                             =   3;
+    required ClientEvent createdEvent                                   =   4;
+    optional ClientConversation updatedConversation                     =   5;
+}
+
+
+message ClientReplyToInviteNotification {
+    optional ClientConversationId conversationId                        =   1;
+    optional ClientReplyToInviteType type                               =   2;
+}
+
+
+message ClientReplyToInviteRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional ClientReplyToInviteType type                               =   3;
+}
+
+
+message ClientReplyToInviteResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+}
+
+
+enum ClientReplyToInviteType {
+    UNKNOWN_REPLY_TO_INVITE_TYPE                                        =   0;
+    ACCEPT                                                              =   1;
+    DECLINE                                                             =   2;
+}
+
+
+message ClientRequestHeader {
+    optional ClientClientVersion clientVersion                          =   1;
+    optional ClientClientIdentifier clientIdentifier                    =   2;
+    optional ClientClientInstrumentationInfo clientInstrumentationInfo  =   3;
+    optional string languageCode                                        =   4;
+    optional bool includeUpdatedConversation                            =   5;
+    optional uint32 retryAttempt                                        =   6;
+}
+
+message ClientResponseHeader {
+    optional ClientResponseStatus status                                =   1;
+    optional string errorDescription                                    =   2;
+    optional string debugUrl                                            =   3;
+    optional uint64 requestTraceId                                      =   4;
+    optional uint64 currentServerTime                                   =   5;
+    optional uint64 backoffDurationMillis                               =   6;
+
+
+    enum ClientResponseStatus {
+        UNKNOWN                                                         =   0;
+        OK                                                              =   1;
+        ERROR_BUSY                                                      =   2;
+        ERROR_UNEXPECTED                                                =   3;
+        ERROR_INVALID_REQUEST                                           =   4;
+        ERROR_RETRY_LIMIT                                               =   5;
+        ERROR_FORWARDED                                                 =   6;
+    }
+}
+
+
+message ClientSearchEntitiesRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    repeated ClientEntityFilterType entityTypeFilter                    =   2;
+    optional string query                                               =   3;
+    optional int32 maxCount                                             =   4;
+    optional bool includeAvailability                                   =   5;
+}
+
+
+message ClientSearchEntitiesResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    repeated ClientEntity entity                                        =   2;
+    optional bool incomplete                                            =   3;
+}
+
+
+message ClientSelfPresenceNotification {
+    optional ClientClientPresenceState clientPresenceState              =   1;
+    optional ClientPresence presence                                    =   2;
+    optional ClientDndState dndState                                    =   3;
+    optional ClientDesktopOffSetting desktopOffSetting                  =   4;
+    optional ClientDesktopOffState desktopOffState                      =   5;
+}
+
+
+message ClientSendChatMessageRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional uint64 clientGeneratedId                                   =   3;
+    optional bool dummy                                                 =   4;
+    repeated ClientEventAnnotation annotation                           =   5;
+    required ClientMessageContent messageContent                        =   6;
+    optional ClientExistingMedia existingMedia                          =   7;
+    optional ClientEventRequestHeader eventRequestHeader                =   8;
+    optional ClientInviteeId otherInviteeId                             =   9;
+}
+
+
+message ClientSendChatMessageResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional uint64 timestamp                                           =   2;
+    optional string eventId                                             =   3;
+    repeated ClientMediaUploadInfo mediaUploadInfo                      =   4;
+    optional ClientEventHeader eventHeader                              =   5;
+    optional ClientEvent createdEvent                                   =   6;
+    optional ClientConversation updatedConversation                     =   7;
+}
+
+
+message ClientSendOffnetworkInvitationRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientOffnetworkAddress inviteeAddress                     =   2;
+}
+
+
+message ClientSendOffnetworkInvitationResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional OffnetworkInvitationError error                            =   2;
+
+
+    enum OffnetworkInvitationError {
+        SEND_FAILED                                                     =   0;
+        INVALID_ADDRESS                                                 =   1;
+        EXCEEDED_SPAM_QUOTA                                             =   2;
+        EXCEEDED_ADDRESS_QUOTA                                          =   3;
+    }
+}
+
+
+message ClientSetActiveClientRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional bool isActive                                              =   2;
+    optional string fullJid                                             =   3;
+    optional uint32 timeoutSecs                                         =   4;
+}
+
+
+message ClientSetActiveClientResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+}
+
+
+message ClientSetConfigurationBitRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    repeated ClientConfigurationBit configurationBit                    =   2;
+}
+
+
+message ClientSetConfigurationBitResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    repeated ClientConfigurationBitError configurationBitError          =   2;
+}
+
+
+message ClientSetConversationNotificationLevelNotification {
+    optional ClientConversationId conversationId                        =   1;
+    optional ClientNotificationLevel level                              =   2;
+    optional int32 revertTimeoutSecs                                    =   3;
+    optional uint64 timestamp                                           =   4;
+}
+
+
+message ClientSetConversationNotificationLevelRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional ClientNotificationLevel level                              =   3;
+    optional int32 revertTimeoutSecs                                    =   4;
+}
+
+
+message ClientSetConversationNotificationLevelResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional uint64 timestamp                                           =   2;
+}
+
+
+message ClientSetFocusNotification {
+    optional ClientConversationId conversationId                        =   1;
+    optional ClientParticipantId senderId                               =   2;
+    optional uint64 timestamp                                           =   3;
+    optional ClientFocusType type                                       =   4;
+    optional uint32 timeoutSecs                                         =   5;
+}
+
+
+message ClientSetFocusRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional ClientFocusType type                                       =   3;
+    optional uint32 timeoutSecs                                         =   4;
+    optional bool dummy                                                 =   5;
+    optional bool queryFocus                                            =   6;
+}
+
+
+message ClientSetFocusResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional uint64 timestamp                                           =   2;
+}
+
+
+message ClientSetHangoutNotificationStatusRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional string hangoutId                                           =   2;
+    optional ClientHangoutNotificationStatus status                     =   3;
+}
+
+
+message ClientSetPresenceRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientPresenceStateSetting presenceStateSetting            =   2;
+    optional ClientDndSetting dndSetting                                =   3;
+    optional bool dummy                                                 =   4;
+    optional ClientDesktopOffSetting desktopOffSetting                  =   5;
+}
+
+
+message ClientSetPresenceResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+}
+
+
+message ClientSetTypingNotification {
+    optional ClientConversationId conversationId                        =   1;
+    optional ClientParticipantId senderId                               =   2;
+    optional uint64 timestamp                                           =   3;
+    optional ClientTypingType type                                      =   4;
+}
+
+
+message ClientSetTypingRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional ClientTypingType type                                      =   3;
+}
+
+
+message ClientSetTypingResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional uint64 timestamp                                           =   2;
+}
+
+
+message ClientSettingsNotification {
+    optional ClientDoNotDisturbSetting dndSetting                       =   1;
+    optional bool dummy                                                 =   2;
+    optional ClientDesktopOffSetting desktopOffSetting                  =   3;
+}
+
+
+enum ClientSourceType {
+    UNKNOWN_SOURCE_TYPE                                                 =   0;
+    MOBILE                                                              =   1;
+    WEB                                                                 =   2;
+}
+
+
+message ClientStartPhoneNumberVerificationRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional PhoneNumber phoneNumber                                    =   2;
+    optional ClientPhoneNumberVerificationMethod method                 =   3;
+    optional ClientSmsToAppPhoneVerificationParameters smsToAppParameters    =   4;
+
+
+    enum ClientPhoneNumberVerificationMethod {
+        UNKNOWN_VERIFICATION_METHOD                                     =   0;
+        SMS_TO_APP                                                      =   1;
+        SMS_TO_HUMAN                                                    =   2;
+    }
+
+
+    message ClientSmsToAppPhoneVerificationParameters {
+        optional string smsPrefix                                       =   1;
+    }
+}
+
+
+message ClientStartPhoneNumberVerificationResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional ClientPhoneNumberVerificationContext phoneNumberVerificationContext    =   2;
+    optional bool rateLimitExceeded                                     =   3;
+}
+
+
+message ClientStateUpdate {
+    optional ClientStateUpdateHeader stateUpdateHeader                  =   1;
+    optional ClientConversationNotification conversationNotification    =   2;
+    required ClientEventNotification eventNotification                  =   3;
+    optional ClientSetFocusNotification focusNotification               =   4;
+    optional ClientSetTypingNotification typingNotification             =   5;
+    optional ClientSetConversationNotificationLevelNotification notificationLevelNotification   =   6;
+    optional ClientReplyToInviteNotification replyToInviteNotification  =   7;
+    optional ClientWatermarkNotification watermarkNotification          =   8;
+    optional bool dummy                                                 =   9;
+    optional ClientSettingsNotification settingsNotification            =   10;
+    optional ClientConversationViewModification viewModification        =   11;
+    optional ClientEasterEggNotification easterEggNotification          =   12;
+    optional ClientConversation clientConversation                      =   13;
+    optional ClientSelfPresenceNotification selfPresenceNotification    =   14;
+    optional ClientDeleteActionNotification deleteNotification          =   15;
+    optional ClientPresenceNotification presenceNotification            =   16;
+    optional ClientBlockNotification blockNotification                  =   17;
+    optional ClientInvitationWatermarkNotification invitationWatermarkNotification  =   18;
+}
+
+
+message ClientStateUpdateHeader {
+    optional ActiveClientState activeClientState                        =   1;
+    optional ClientUserSettings selfSettings                            =   2;
+    optional uint64 requestTraceId                                      =   3;
+    optional ClientNotificationSettings notificationSettings            =   4;
+    optional uint64 currentServerTime                                   =   5;
+    optional ClientArchiveSettings archiveSettings                      =   6;
+}
+
+message ClientSyncAllNewEventsRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional uint64 lastSyncTimestamp                                   =   2;
+    repeated ClientLocalConversationState localState                    =   3;
+    optional int32 maxTotalEvents                                       =   4;
+    repeated ClientSyncFilter syncFilter                                =   5;
+    optional bool noMissedEventsExpected                                =   6;
+    repeated ClientUnreadConversationState unreadState                  =   7;
+    optional int32 maxResponseSizeBytes                                 =   8;
+}
+
+message ClientSyncAllNewEventsResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional uint64 syncTimestamp                                       =   2;
+    repeated ClientConversationState conversationState                  =   3;
+    optional bool conversationIdsOnly                                   =   4;
+    optional ClientInvitationState invitationState                      =   5;
+    optional bool clearCacheAndResync                                   =   6;
+}
+
+
+enum ClientSyncFilter {
+    UNKNOWN_SYNC_FILTER                                                 =   0;
+    INBOX_SYNC_FILTER                                                   =   1;
+    ARCHIVE_SYNC_FILTER                                                 =   2;
+    ACTIVE_SYNC_FILTER                                                  =   3;
+    INVITED_SYNC_FILTER                                                 =   4;
+    INVITED_LOW_AFFINITY_SYNC_FILTER                                    =   5;
+}
+
+
+message ClientSyncRecentConversationsRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional int64 endTimestamp                                         =   2;
+    optional int32 maxConversations                                     =   3;
+    optional int32 maxEventsPerConversation                             =   4;
+    repeated ClientSyncFilter syncFilter                                =   5;
+}
+
+
+message ClientSyncRecentConversationsResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+    optional uint64 syncTimestamp                                       =   2;
+    repeated ClientConversationState conversationState                  =   3;
+    optional uint64 continuationEndTimestamp                            =   4;
+    optional ClientInvitationState invitationState                      =   5;
+}
+
+
+enum ClientTypingType {
+    DUMMY                                                               =   0;
+    START                                                               =   1;
+    PAUSE                                                               =   2;
+    CLEAR                                                               =   3;
+}
+
+
+message ClientUnreadConversationState {
+    optional ClientConversationId conversationId                        =   1;
+    optional uint64 latestReadTimestamp                                 =   2;
+}
+
+
+message ClientUpdateInvitationWatermarkRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional uint64 latestReadTimestamp                                 =   2;
+}
+
+
+message ClientUpdateWatermarkRequest {
+    optional ClientRequestHeader requestHeader                          =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional uint64 latestReadTimestamp                                 =   3;
+}
+
+
+message ClientUpdateWatermarkResponse {
+    optional ClientResponseHeader responseHeader                        =   1;
+}
+
+
+enum ClientUpgradeType {
+    SUGGEST                                                             =   0;
+    FORCE                                                               =   1;
+}
+
+
+message ClientUserReadState {
+    optional ClientParticipantId participantId                          =   1;
+    optional uint64 latestReadTimestamp                                 =   2;
+}
+
+
+
+message ClientUserSettings {
+    optional ClientDoNotDisturbSetting dndSetting                       =   1;
+}
+
+
+enum ClientVerificationStatus {
+    UNKNOWN_VERIFICATION_STATUS                                         =   0;
+    VERIFIED                                                            =   1;
+}
+
+
+message ClientWatermarkNotification {
+    optional ClientParticipantId participantId                          =   1;
+    optional ClientConversationId conversationId                        =   2;
+    optional uint64 latestReadTimestamp                                 =   3;
+}
+
+
+message DeepLinkData {
+    optional int64 appId                                                =   1;
+    optional string deepLinkId                                          =   2;
+    repeated PackagingServiceClient client                              =   3;
+    optional string url                                                 =   4;
+}
+
+
+message EmbedClientItem {
+    repeated ItemType type                                              =   1;
+    optional string id                                                  =   2;
+    optional string canonicalId                                         =   3;
+    optional DeepLinkData deepLinkData                                  =   4;
+    required TransientData transientData                                =   5;
+}
+
+
+message Formatting {
+    optional bool bold                                                  =   1;
+    optional bool italic                                                =   2;
+    optional bool strikethrough                                         =   3;
+    optional bool underline                                             =   4;
+}
+
+
+message HashtagData {
+    optional string searchText                                          =   1;
+}
+
+
+enum ItemType {
+    UNKNOWN                                                             =   0;
+    AGGREGATE_RATING_V2                                                 =   1;
+    ARTICLE_V2                                                          =   2;
+    AUDIO_OBJECT_V2                                                     =   3;
+    BASIC_INTERACTION_V2                                                =   4;
+    BLOG_V2                                                             =   5;
+    BLOG_POSTING_V2                                                     =   6;
+    BOOK_V2                                                             =   7;
+    CHECKIN_V2                                                          =   8;
+    COMMENT_V2                                                          =   9;
+    CREATIVE_WORK_V2                                                    =   10;
+    DOCUMENT_OBJECT_V2                                                  =   11;
+    DRAWING_OBJECT_V2                                                   =   12;
+    DRIVE_OBJECT_V2                                                     =   13;
+    EMOTISHARE_V2                                                       =   14;
+    EVENT_V2                                                            =   15;
+    EVENT_TIME_V2                                                       =   16;
+    FILE_OBJECT_V2                                                      =   17;
+    FINANCIAL_QUOTE_V2                                                  =   18;
+    FORM_OBJECT_V2                                                      =   19;
+    GEO_COORDINATES_V2                                                  =   20;
+    GOOGLE_OFFER_V2                                                     =   21;
+    HANGOUT_V2                                                          =   22;
+    IMAGE_OBJECT_V2                                                     =   23;
+    INTERACTION_V2                                                      =   24;
+    LOCAL_BUSINESS_V2                                                   =   25;
+    LOCAL_PLUS_PHOTO_ALBUM_V2                                           =   26;
+    MAGAZINE_V2                                                         =   27;
+    MEDIA_OBJECT_V2                                                     =   28;
+    MOBILE_APPLICATION_V2                                               =   29;
+    MOVIE_V2                                                            =   30;
+    MUSIC_ALBUM_V2                                                      =   31;
+    MUSIC_GROUP_V2                                                      =   32;
+    MUSIC_PLAYLIST_V2                                                   =   33;
+    MUSIC_RECORDING_V2                                                  =   34;
+    OFFER_V2                                                            =   35;
+    ORGANIZATION_V2                                                     =   36;
+    PERSON_V2                                                           =   37;
+    PLACE_V2                                                            =   38;
+    PLACE_REVIEW_V2                                                     =   39;
+    PLAY_MUSIC_ALBUM_V2                                                 =   40;
+    PLAY_MUSIC_TRACK_V2                                                 =   41;
+    PLAY_OBJECT_V2                                                      =   42;
+    PLUS_PAGE_V2                                                        =   43;
+    PLUS_EVENT_V2                                                       =   44;
+    PLUS_PHOTO_ALBUM_V2                                                 =   45;
+    PLUS_PHOTO_COLLECTION_V2                                            =   46;
+    PLUS_PHOTO_V2                                                       =   47;
+    PLUS_PHOTOS_ADDED_TO_COLLECTION_V2                                  =   48;
+    PLUS_POST_V2                                                        =   49;
+    PRESENTATION_OBJECT_V2                                              =   50;
+    POSTAL_ADDRESS_V2                                                   =   51;
+    PRODUCT_REVIEW_V2                                                   =   52;
+    RATING_V2                                                           =   53;
+    RESERVATION_V2                                                      =   54;
+    REVIEW_V2                                                           =   55;
+    SPREADSHEET_OBJECT_V2                                               =   56;
+    SQUARE_INVITE_V2                                                    =   57;
+    SQUARE_V2                                                           =   58;
+    THING_V2                                                            =   59;
+    TOUR_OBJECT_V2                                                      =   60;
+    TV_EPISODE_V2                                                       =   61;
+    TV_SERIES_V2                                                        =   62;
+    VIDEO_OBJECT_V2                                                     =   63;
+    WEB_PAGE_V2                                                         =   64;
+    STORY_V2                                                            =   65;
+    THING                                                               =   66;
+    CREATIVE_WORK                                                       =   67;
+    EVENT                                                               =   68;
+    INTANGIBLE                                                          =   69;
+    ORGANIZATION                                                        =   70;
+    PERSON                                                              =   71;
+    PLACE                                                               =   72;
+    PRODUCT                                                             =   73;
+    ARTICLE                                                             =   74;
+    BLOG_POSTING                                                        =   75;
+    NEWS_ARTICLE                                                        =   76;
+    SCHOLARLY_ARTICLE                                                   =   77;
+    BLOG                                                                =   78;
+    BOOK                                                                =   79;
+    COMMENT                                                             =   80;
+    ITEM_LIST                                                           =   81;
+    MAP                                                                 =   82;
+    MEDIA_OBJECT                                                        =   83;
+    AUDIO_OBJECT                                                        =   84;
+    IMAGE_OBJECT                                                        =   85;
+    MUSIC_VIDEO_OBJECT                                                  =   86;
+    VIDEO_OBJECT                                                        =   87;
+    MOVIE                                                               =   88;
+    MUSIC_PLAYLIST                                                      =   89;
+    MUSIC_ALBUM                                                         =   90;
+    MUSIC_RECORDING                                                     =   91;
+    PAINTING                                                            =   92;
+    PHOTOGRAPH                                                          =   93;
+    RECIPE                                                              =   94;
+    REVIEW                                                              =   95;
+    SCULPTURE                                                           =   96;
+    SOFTWARE_APPLICATION                                                =   97;
+    MOBILE_APPLICATION                                                  =   98;
+    WEB_APPLICATION                                                     =   99;
+    TV_EPISODE                                                          =   100;
+    TV_SEASON                                                           =   101;
+    TV_SERIES                                                           =   102;
+    WEB_PAGE                                                            =   103;
+    ABOUT_PAGE                                                          =   104;
+    CHECKOUT_PAGE                                                       =   105;
+    COLLECTION_PAGE                                                     =   106;
+    IMAGE_GALLERY                                                       =   107;
+    VIDEO_GALLERY                                                       =   108;
+    CONTACT_PAGE                                                        =   109;
+    ITEM_PAGE                                                           =   110;
+    PROFILE_PAGE                                                        =   111;
+    SEARCH_RESULTS_PAGE                                                 =   112;
+    WEB_PAGE_ELEMENT                                                    =   113;
+    SITE_NAVIGATION_ELEMENT                                             =   114;
+    TABLE                                                               =   115;
+    WP_AD_BLOCK                                                         =   116;
+    WP_FOOTER                                                           =   117;
+    WP_HEADER                                                           =   118;
+    WP_SIDEBAR                                                          =   119;
+    APP_INVITE                                                          =   120;
+    EMOTISHARE                                                          =   121;
+    BUSINESS_EVENT                                                      =   122;
+    CHILDRENS_EVENT                                                     =   123;
+    COMEDY_EVENT                                                        =   124;
+    DANCE_EVENT                                                         =   125;
+    EDUCATION_EVENT                                                     =   126;
+    FESTIVAL                                                            =   127;
+    FOOD_EVENT                                                          =   128;
+    LITERARY_EVENT                                                      =   129;
+    MUSIC_EVENT                                                         =   130;
+    SALE_EVENT                                                          =   131;
+    SOCIAL_EVENT                                                        =   132;
+    SPORTS_EVENT                                                        =   133;
+    THEATER_EVENT                                                       =   134;
+    VISUAL_ARTS_EVENT                                                   =   135;
+    RESERVATION                                                         =   136;
+    TRAVEL_EVENT                                                        =   137;
+    CORPORATION                                                         =   138;
+    EDUCATIONAL_ORGANIZATION                                            =   139;
+    COLLEGE_OR_UNIVERSITY                                               =   140;
+    ELEMENTARY_SCHOOL                                                   =   141;
+    HIGH_SCHOOL                                                         =   142;
+    MIDDLE_SCHOOL                                                       =   143;
+    PRESCHOOL                                                           =   144;
+    SCHOOL                                                              =   145;
+    GOVERNMENT_ORGANIZATION                                             =   146;
+    LOCAL_BUSINESS                                                      =   147;
+    ANIMAL_SHELTER                                                      =   148;
+    AUTOMOTIVE_BUSINESS                                                 =   149;
+    AUTO_BODY_SHOP                                                      =   150;
+    AUTO_DEALER                                                         =   151;
+    AUTO_PARTS_STORE                                                    =   152;
+    AUTO_RENTAL                                                         =   153;
+    AUTO_REPAIR                                                         =   154;
+    AUTO_WASH                                                           =   155;
+    GAS_STATION                                                         =   156;
+    MOTORCYCLE_DEALER                                                   =   157;
+    MOTORCYCLE_REPAIR                                                   =   158;
+    CHILD_CARE                                                          =   159;
+    DRY_CLEANING_OR_LAUNDRY                                             =   160;
+    EMERGENCY_SERVICE                                                   =   161;
+    FIRE_STATION                                                        =   162;
+    HOSPITAL                                                            =   163;
+    POLICE_STATION                                                      =   164;
+    EMPLOYMENT_AGENGY                                                   =   165;
+    ENTERTAINMENT_BUSINESS                                              =   166;
+    ADULT_ENTERTAINMENT                                                 =   167;
+    AMUSEMENT_PARK                                                      =   168;
+    ART_GALLERY                                                         =   169;
+    CASINO                                                              =   170;
+    COMEDY_CLUB                                                         =   171;
+    MOVIE_THEATER                                                       =   172;
+    NIGHT_CLUB                                                          =   173;
+    FINANCIAL_SERVICE                                                   =   174;
+    ACCOUNTING_SERVICE                                                  =   175;
+    AUTOMATED_TELLER                                                    =   176;
+    BANK_OR_CREDIT_UNION                                                =   177;
+    INSURANCE_AGENCY                                                    =   178;
+    FOOD_ESTABLISHMENT                                                  =   179;
+    BAKERY                                                              =   180;
+    BAR_OR_PUB                                                          =   181;
+    BREWERY                                                             =   182;
+    CAFE_OR_COFFEE_SHOP                                                 =   183;
+    FAST_FOOD_RESTAURANT                                                =   184;
+    ICE_CREAM_SHOP                                                      =   185;
+    RESTAURANT                                                          =   186;
+    WINERY                                                              =   187;
+    GOVERNMENT_OFFICE                                                   =   188;
+    POST_OFFICE                                                         =   189;
+    HEALTH_AND_BEAUTY_BUSINESS                                          =   190;
+    BEAUTY_SALON                                                        =   191;
+    DAY_SPA                                                             =   192;
+    HAIR_SALON                                                          =   193;
+    HEALTH_CLUB                                                         =   194;
+    NAIL_SALON                                                          =   195;
+    TATTOO_PARLOR                                                       =   196;
+    HOME_AND_CONSTRUCTION_BUSINESS                                      =   197;
+    ELECTRICIAN                                                         =   198;
+    GENERAL_CONTRACTOR                                                  =   199;
+    HVAC_BUSINESS                                                       =   200;
+    HOUSE_PAINTER                                                       =   201;
+    LOCKSMITH                                                           =   202;
+    MOVING_COMPANY                                                      =   203;
+    PLUMBER                                                             =   204;
+    ROOFING_CONTRACTOR                                                  =   205;
+    INTERNET_CAFE                                                       =   206;
+    LIBRARY                                                             =   207;
+    LODGING_BUSINESS                                                    =   208;
+    BED_AND_BREAKFAST                                                   =   209;
+    HOSTEL                                                              =   210;
+    HOTEL                                                               =   211;
+    MOTEL                                                               =   212;
+    MEDICAL_ORGANIZATION                                                =   213;
+    DENTIST                                                             =   214;
+    MEDICAL_CLINIC                                                      =   215;
+    OPTICIAN                                                            =   216;
+    PHARMACY                                                            =   217;
+    PHYSICIAN                                                           =   218;
+    VETERINARY_CARE                                                     =   219;
+    PROFESSIONAL_SERVICE                                                =   220;
+    ATTORNEY                                                            =   221;
+    NOTARY                                                              =   222;
+    RADIO_STATION                                                       =   223;
+    REAL_ESTATE_AGENT                                                   =   224;
+    RECYCLING_CENTER                                                    =   225;
+    SELF_STORAGE                                                        =   226;
+    SHOPPING_CENTER                                                     =   227;
+    SPORTS_ACTIVITY_LOCATION                                            =   228;
+    BOWLING_ALLEY                                                       =   229;
+    EXERCISE_GYM                                                        =   230;
+    GOLF_COURSE                                                         =   231;
+    PUBLIC_SWIMMING_POOL                                                =   232;
+    SKI_RESORT                                                          =   233;
+    SPORTS_CLUB                                                         =   234;
+    STADIUM_OR_ARENA                                                    =   235;
+    TENNIS_COMPLEX                                                      =   236;
+    STORE                                                               =   237;
+    BIKE_STORE                                                          =   238;
+    BOOK_STORE                                                          =   239;
+    CLOTHING_STORE                                                      =   240;
+    COMPUTER_STORE                                                      =   241;
+    CONVENIENCE_STORE                                                   =   242;
+    DEPARTMENT_STORE                                                    =   243;
+    ELECTRONICS_STORE                                                   =   244;
+    FLORIST                                                             =   245;
+    FURNITURE_STORE                                                     =   246;
+    GARDEN_STORE                                                        =   247;
+    GROCERY_STORE                                                       =   248;
+    HARDWARE_STORE                                                      =   249;
+    HOBBY_SHOP                                                          =   250;
+    HOME_GOODS_STORE                                                    =   251;
+    JEWELRY_STORE                                                       =   252;
+    LIQUOR_STORE                                                        =   253;
+    MENS_CLOTHING_STORE                                                 =   254;
+    MOBILE_PHONE_STORE                                                  =   255;
+    MOVIE_RENTAL_STORE                                                  =   256;
+    MUSIC_STORE                                                         =   257;
+    OFFICE_EQUIPMENT_STORE                                              =   258;
+    OUTLET_STORE                                                        =   259;
+    PAWN_SHOP                                                           =   260;
+    PET_STORE                                                           =   261;
+    SHOE_STORE                                                          =   262;
+    SPORTING_GOODS_STORE                                                =   263;
+    TIRE_SHOP                                                           =   264;
+    TOY_STORE                                                           =   265;
+    WHOLESALE_STORE                                                     =   266;
+    TELEVISION_STATION                                                  =   267;
+    TOURIST_INFORMATION_CENTER                                          =   268;
+    TRAVEL_AGENCY                                                       =   269;
+    PERFORMING_GROUP                                                    =   270;
+    MUSIC_GROUP                                                         =   271;
+    ADMINISTRATIVE_AREA                                                 =   272;
+    CITY                                                                =   273;
+    COUNTRY                                                             =   274;
+    STATE                                                               =   275;
+    CIVIC_STRUCTURE                                                     =   276;
+    AIRPORT                                                             =   277;
+    AQUARIUM                                                            =   278;
+    BEACH                                                               =   279;
+    BUS_STATION                                                         =   280;
+    BUS_STOP                                                            =   281;
+    CAMPGROUND                                                          =   282;
+    CEMETERY                                                            =   283;
+    CREMATORIUM                                                         =   284;
+    EVENT_VENUE                                                         =   285;
+    GOVERNMENT_BUILDING                                                 =   286;
+    CITY_HALL                                                           =   287;
+    COURTHOUSE                                                          =   288;
+    DEFENCE_ESTABLISHMENT                                               =   289;
+    EMBASSY                                                             =   290;
+    LEGISLATIVE_BUILDING                                                =   291;
+    MUSEUM                                                              =   292;
+    MUSIC_VENUE                                                         =   293;
+    PARK                                                                =   294;
+    PARKING_FACILITY                                                    =   295;
+    PERFORMING_ARTS_THEATER                                             =   296;
+    PLACE_OF_WORSHIP                                                    =   297;
+    BUDDHIST_TEMPLE                                                     =   298;
+    CATHOLIC_CHURCH                                                     =   299;
+    CHURCH                                                              =   300;
+    HINDU_TEMPLE                                                        =   301;
+    MOSQUE                                                              =   302;
+    SYNAGOGUE                                                           =   303;
+    PLAYGROUND                                                          =   304;
+    R_V_PARK                                                            =   305;
+    RESIDENCE                                                           =   306;
+    APARTMENT_COMPLEX                                                   =   307;
+    GATED_RESIDENCE_COMMUNITY                                           =   308;
+    SINGLE_FAMILY_RESIDENCE                                             =   309;
+    TOURIST_ATTRACTION                                                  =   310;
+    SUBWAY_STATION                                                      =   311;
+    TAXI_STAND                                                          =   312;
+    TRAIN_STATION                                                       =   313;
+    ZOO                                                                 =   314;
+    LANDFORM                                                            =   315;
+    BODY_OF_WATER                                                       =   316;
+    CANAL                                                               =   317;
+    LAKE_BODY_OF_WATER                                                  =   318;
+    OCEAN_BODY_OF_WATER                                                 =   319;
+    POND                                                                =   320;
+    RESERVOIR                                                           =   321;
+    RIVER_BODY_OF_WATER                                                 =   322;
+    SEA_BODY_OF_WATER                                                   =   323;
+    WATERFALL                                                           =   324;
+    CONTINENT                                                           =   325;
+    MOUNTAIN                                                            =   326;
+    VOLCANO                                                             =   327;
+    LANDMARKS_OR_HISTORICAL_BUILDINGS                                   =   328;
+    USER_INTERACTION                                                    =   329;
+    USER_PLUS_ONES                                                      =   330;
+    ENUMERATION                                                         =   331;
+    BOOK_FORMAT_TYPE                                                    =   332;
+    ITEM_AVAILABILITY                                                   =   333;
+    OFFER_ITEM_CONDITION                                                =   334;
+    JOB_POSTING                                                         =   335;
+    LANGUAGE                                                            =   336;
+    OFFER                                                               =   337;
+    QUANTITY                                                            =   338;
+    DISTANCE                                                            =   339;
+    DURATION                                                            =   340;
+    ENERGY                                                              =   341;
+    MASS                                                                =   342;
+    RATING                                                              =   343;
+    AGGREGATE_RATING                                                    =   344;
+    STRUCTURED_VALUE                                                    =   345;
+    CONTACT_POINT                                                       =   346;
+    POSTAL_ADDRESS                                                      =   347;
+    GEO_COORDINATES                                                     =   348;
+    GEO_SHAPE                                                           =   349;
+    NUTRITION_INFORMATION                                               =   350;
+    PRESENTATION_OBJECT                                                 =   351;
+    DOCUMENT_OBJECT                                                     =   352;
+    SPREADSHEET_OBJECT                                                  =   353;
+    FORM_OBJECT                                                         =   354;
+    DRAWING_OBJECT                                                      =   355;
+    PLACE_REVIEW                                                        =   356;
+    FILE_OBJECT                                                         =   357;
+    PLAY_MUSIC_TRACK                                                    =   358;
+    PLAY_MUSIC_ALBUM                                                    =   359;
+    MAGAZINE                                                            =   360;
+    CAROUSEL_FRAME                                                      =   361;
+    PLUS_EVENT                                                          =   362;
+    HANGOUT                                                             =   363;
+    HANGOUT_BROADCAST                                                   =   364;
+    HANGOUT_CONSUMER                                                    =   365;
+    CHECKIN                                                             =   366;
+    EXAMPLE_OBJECT                                                      =   367;
+    SQUARE                                                              =   368;
+    SQUARE_INVITE                                                       =   369;
+    PLUS_PHOTO                                                          =   370;
+    PLUS_PHOTO_ALBUM                                                    =   371;
+    LOCAL_PLUS_PHOTO_ALBUM                                              =   372;
+    PRODUCT_REVIEW                                                      =   373;
+    FINANCIAL_QUOTE                                                     =   374;
+    TOUR_OBJECT                                                         =   375;
+    PLUS_PAGE                                                           =   376;
+    GOOGLE_CHART                                                        =   377;
+    PLUS_PHOTOS_ADDED_TO_COLLECTION                                     =   378;
+    RECOMMENDED_PEOPLE                                                  =   379;
+    PLUS_POST                                                           =   380;
+}
+
+
+message LinkData {
+    optional string linkTarget                                          =   1;
+    optional string displayUrl                                          =   2;
+    required Attachment attachment                                      =   3;
+}
+
+
+message PackagingServiceClient {
+    optional Type type                                                  =   1;
+    optional string androidPackageName                                  =   2;
+    optional string iosBundleId                                         =   3;
+    optional string iosAppStoreId                                       =   4;
+
+
+    enum Type {
+        ANDROID                                                         =   0;
+        IOS                                                             =   1;
+    }
+}
+
+
+message PhoneNumber {
+    optional string e164                                                =   1;
+}
+
+
+message SafeMobileUrl {
+    optional ImageUrlFormat urlFormat                                   =   1;
+    optional string url                                                 =   2;
+
+
+    enum ImageUrlFormat {
+        FIFE_LEGACY                                                     =   0;
+        FIFE_CONTENT                                                    =   1;
+        IMAGE_PROXY                                                     =   2;
+        UNKNOWN                                                         =   3;
+    }
+}
+
+
+message Segment {
+    optional SegmentType type                                           =   1;
+    optional string text                                                =   2;
+    optional Formatting formatting                                      =   3;
+    required LinkData linkData                                          =   4;
+    optional UserMentionData userMentionData                            =   5;
+    optional HashtagData hashtagData                                    =   6;
+}
+
+
+message SegmentType {
+    // Nothing here
+}
+
+
+message TransientData {
+    // Nothing here
+}
+
+
+message UserMentionData {
+    optional int64 userGaiaId                                           =   1;
+    optional string userId                                              =   2;
+    optional string email                                               =   3;
+}
+
+
+message EcConfiguration {
+    optional string channelPath                                         =   1;
+    optional bool unknown1                                              =   2;
+    optional string unknown2                                            =   3;
+    optional string ecParam                                             =   4;
+    optional string propParam                                           =   5;
+    optional bool unknown4                                              =   6;
+    optional string headerId                                            =   7;
+}
+
+
+message ChatInitParameters {
+    optional string unknown1                                            =   1;
+    optional string unknown2                                            =   2;
+    optional string unknown3                                            =   3;
+    optional string headerDate                                          =   4;
+    optional string propParam                                           =   5;
+    optional string headerVersion                                       =   6;
+} 
+
+
+message ChatApiConfiguration {
+    optional string path                                                =   1;
+    optional string key                                                 =   2;
+} 
+
+
+message PVTToken {
+    optional string operation                                           =   1;
+    optional string token                                               =   2;
+}
+
