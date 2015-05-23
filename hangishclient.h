@@ -48,6 +48,7 @@ public:
     void setFocus(QString convId, int status);
     void setTyping(QString convId, int status);
     void setPresence(bool goingOffline);
+    void getConversation(const QString &conversationId);
     void hangishDisconnect();
     void hangishConnect(quint64 lastKnownPushTs = 0);
     ClientEntity getMyself();
@@ -65,6 +66,7 @@ public Q_SLOTS:
     void setTypingReply();
     void setPresenceReply();
     void updateWatermarkReply();
+    void getConversationReply();
     void updateClientId(QString newID);
     void setFocusReply();
     void cookieUpdateSlot(QNetworkCookie cookie);
@@ -80,6 +82,7 @@ Q_SIGNALS:
     void authFailed(AuthenticationStatus status, QString error);
     void clientStateUpdate(ClientStateUpdate &csu);
     void clientSyncAllNewEventsResponse(ClientSyncAllNewEventsResponse &csanerp);
+    void clientGetConversationResponse(ClientGetConversationResponse &cgcr);
 
 private Q_SLOTS:
     void onClientBatchUpdate(ClientBatchUpdate &cbu);

@@ -534,6 +534,50 @@ void HangishClient::setTypingReply()
     }
 }
 
+void HangishClient::getConversation(const QString &conversationId)
+{
+    ClientGetConversationRequest clientGetConversationRequest;
+    ClientConversationSpec *clientConversationSpec =  new ClientConversationSpec();
+    ClientConversationId *clientConversationId = new ClientConversationId();
+
+    clientConversationSpec->set_allocated_conversationid(clientConversationId);
+    clientConversationId->set_id(conversationId.toLatin1());
+
+    clientGetConversationRequest.set_allocated_requestheader(getRequestHeader1());
+    clientGetConversationRequest.set_allocated_conversationspec(clientConversationSpec);
+
+    QNetworkReply *reply = sendRequest("conversations/getconversation", Utils::msgToJsArray(clientGetConversationRequest));
+    QObject::connect(reply, SIGNAL(finished()), this, SLOT(getConversationReply()));
+}
+
+void HangishClient::getConversationReply()
+{
+    //The content of this reply contains CLIENT_CONVERSATION_STATE, such as lost messages
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+
+    QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
+    QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
+    qDebug() << "Got " << c.size() << "from" << reply->url();
+    Q_FOREACH (QNetworkCookie cookie, c) {
+        qDebug() << cookie.name();
+    }
+    QString sreply = reply->readAll();
+
+    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
+
+        ClientGetConversationResponse cgcr;
+        QVariantList variantListResponse = Utils::jsArrayToVariantList(sreply);
+        //qDebug() << variantListResponse;
+        if (variantListResponse[0].toString() == "cgcrp") {
+            variantListResponse.pop_front();
+            Utils::packToMessage(QVariantList() << variantListResponse, cgcr);
+            Q_EMIT clientGetConversationResponse(cgcr);
+            qDebug() << "ClientGetConversationResponse: " << cgcr.DebugString().c_str();
+        }
+    }
+    reply->deleteLater();
+}
+
 void HangishClient::syncAllNewEvents(quint64 timestamp)
 {
     ClientSyncAllNewEventsRequest clientSyncAllNewEventsRequest;
@@ -637,6 +681,7 @@ void HangishClient::updateWatermarkReply()
         qDebug() << "There was an error updating the wm! " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     }
 }
+
 
 void HangishClient::initChat(QString pvt)
 {
