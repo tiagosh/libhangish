@@ -48,7 +48,7 @@ public:
     void setFocus(QString convId, int status);
     void setTyping(QString convId, int status);
     void setPresence(bool goingOffline);
-    void getConversation(const QString &conversationId);
+    void getConversation(ClientGetConversationRequest clientGetConversationRequest);
     void hangishDisconnect();
     void hangishConnect(quint64 lastKnownPushTs = 0);
     ClientEntity getMyself();
