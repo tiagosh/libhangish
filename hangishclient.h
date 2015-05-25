@@ -39,7 +39,7 @@ public:
     ClientConversationState getConvById(const QString &cid);
     ClientEntity getUserById(QString chatId);
     void initChat(QString pvt);
-    void sendChatMessage(QString segments, QString conversationId);
+    quint64 sendChatMessage(ClientSendChatMessageRequest clientSendChatMessageRequest);
     void sendImage(QString segments, QString conversationId, QString filename);
     void sendCredentials(QString uname, QString passwd);
     void send2ndFactorPin(QString pin);
@@ -48,7 +48,7 @@ public:
     void setFocus(QString convId, int status);
     void setTyping(QString convId, int status);
     void setPresence(bool goingOffline);
-    void getConversation(ClientGetConversationRequest clientGetConversationRequest);
+    quint64 getConversation(ClientGetConversationRequest clientGetConversationRequest);
     void hangishDisconnect();
     void hangishConnect(quint64 lastKnownPushTs = 0);
     ClientEntity getMyself();
@@ -70,19 +70,18 @@ public Q_SLOTS:
     void updateClientId(QString newID);
     void setFocusReply();
     void cookieUpdateSlot(QNetworkCookie cookie);
-    //void qnamUpdatedSlot(QNetworkAccessManager *qnam);
 
 Q_SIGNALS:
     void loginNeeded();
-    void messageSent();
-    void messageNotSent();
+    void messageSent(quint64 requestId);
+    void messageNotSent(quint64 requestId);
     void initFinished();
     void channelLost();
     void channelRestored();
     void authFailed(AuthenticationStatus status, QString error);
     void clientStateUpdate(ClientStateUpdate &csu);
     void clientSyncAllNewEventsResponse(ClientSyncAllNewEventsResponse &csanerp);
-    void clientGetConversationResponse(ClientGetConversationResponse &cgcr);
+    void clientGetConversationResponse(quint64 requestId, ClientGetConversationResponse &cgcr);
 
 private Q_SLOTS:
     void onClientBatchUpdate(ClientBatchUpdate &cbu);
@@ -105,6 +104,7 @@ private:
     void syncAllNewEvents(quint64 timestamp);
 
     bool mAppPaused;
+    quint64 mCurrentRequestId;
     bool mNeedSync;
     quint64 mLastKnownPushTs;
     QNetworkAccessManager mNetworkAccessManager;
@@ -120,6 +120,7 @@ private:
     Channel *mChannel;
     QMap<QString, ClientEntity> mUsers;
     QMap<QString, ClientConversationState> mConversations;
+    QMap<QNetworkReply*, quint64> mPendingRequests;
 };
 
 #endif // HANGISHCLIENT_H

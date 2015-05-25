@@ -30,6 +30,7 @@
 #include "hangishclient.h"
 
 HangishClient::HangishClient(const QString &pCookiePath) :
+    mCurrentRequestId(0),
     mNeedSync(false),
     mLastKnownPushTs(0),
     mCookiePath(pCookiePath),
@@ -41,6 +42,8 @@ HangishClient::HangishClient(const QString &pCookiePath) :
     QObject::connect(mAuthenticator, SIGNAL(loginNeeded()), this, SIGNAL(loginNeeded()));
     QObject::connect(mAuthenticator, SIGNAL(authFailed(AuthenticationStatus,QString)), this, SIGNAL(authFailed(AuthenticationStatus,QString)));
     QObject::connect(this, SIGNAL(initFinished()), this, SLOT(initDone()));
+    qsrand((uint)QTime::currentTime().msec());
+    mCurrentRequestId = qrand();
 }
 
 void HangishClient::initDone()
@@ -181,15 +184,17 @@ void HangishClient::uploadPerformedReply()
 
 QNetworkReply *HangishClient::sendRequest(QString function, QString json)
 {
-    QString url = ENDPOINT_URL + function;
-    //add params
+    QUrl url(ENDPOINT_URL + function);
+    QUrlQuery query;
+    query.addQueryItem("alt", "protojson");
+    query.addQueryItem("key", mApiKey);
+    url.setQuery(query);
+
     QNetworkRequest req(url);
     req.setRawHeader("authorization", getAuthHeader());
     req.setRawHeader("x-origin", QByteArray(ORIGIN_URL));
     req.setRawHeader("x-goog-authuser", "0");
     req.setRawHeader("content-type", "application/json+protobuf");
-    QByteArray postDataSize = QByteArray::number(json.size());
-    //req.setRawHeader("Content-Length", postDataSize);
 
     QList<QNetworkCookie> reqCookies;
     Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
@@ -197,14 +202,9 @@ QNetworkReply *HangishClient::sendRequest(QString function, QString json)
             reqCookies.append(cookie);
     }
     req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(reqCookies));
-    url += "?alt=protojson&key=";
-    url += mApiKey;
     QByteArray postData;
-    //postData.append("{\"alt\": \"json\", \"key\": \"" + mApiKey + "\"}");
     postData.append(json);
-    //qDebug() << "Sending request " << url;
     return mNetworkAccessManager.post(req, postData);
-    //qDebug() << "req sent " << postData;
 }
 
 ClientRequestHeader *HangishClient::getRequestHeader1()
@@ -270,34 +270,23 @@ void HangishClient::sendImageMessage(QString convId, QString imgId, QString segm
     QObject::connect(reply, SIGNAL(finished()), this, SLOT(sendMessageReply()));
 }
 
-void HangishClient::sendChatMessage(QString segments, QString conversationId)
+quint64 HangishClient::sendChatMessage(ClientSendChatMessageRequest clientSendChatMessageRequest)
 {
-    QString seg = "[[0, \"";
-    seg += segments;
-    seg += "\", [0, 0, 0, 0], [null]]]";
-    //qDebug() << "Sending cm " << segments;
+    quint64 requestId = mCurrentRequestId++;
+    clientSendChatMessageRequest.set_allocated_requestheader(getRequestHeader1());
 
-    //Not really random, but works well
-    qint64 time = QDateTime::currentMSecsSinceEpoch();
-    uint random = (uint)(time % qint64(4294967295u));
-    QString body = "[";
-    body += getRequestHeader();
-    //qDebug() << "gotH " << body;
-    body += ", null, null, null, [], [";
-    body += seg;
-    body += ", []], null, [[\"";
-    body += conversationId;
-    body += "\"], ";
-    body += QString::number(random);
-    body += ", 2], null, null, null, []]";
-    qDebug() << "gotH " << body;
-    QNetworkReply *reply = sendRequest("conversations/sendchatmessage",body);
+    QNetworkReply *reply = sendRequest("conversations/sendchatmessage", Utils::msgToJsArray(clientSendChatMessageRequest));
+    qDebug () << clientSendChatMessageRequest.DebugString().c_str();
     QObject::connect(reply, SIGNAL(finished()), this, SLOT(sendMessageReply()));
+    mPendingRequests[reply] = requestId;
+    return requestId;
 }
 
 void HangishClient::sendMessageReply()
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+
+    quint64 requestId = mPendingRequests.take(reply);
 
     QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
@@ -307,14 +296,12 @@ void HangishClient::sendMessageReply()
     }
     qDebug() << "Response " << reply->readAll();
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
-        qDebug() << "Message sent correctly";
-        //Event evt;
-        //conversationModel->addSentMessage("convId", evt);
-        Q_EMIT messageSent();
+        qDebug() << "Message sent correctly: " << requestId;
+        Q_EMIT messageSent(requestId);
     }
     else {
-        qDebug() << "Problem sending msg";
-        Q_EMIT messageNotSent();
+        qDebug() << "Failed to send message: " << requestId;
+        Q_EMIT messageNotSent(requestId);
     }
     delete reply;
 }
@@ -534,12 +521,14 @@ void HangishClient::setTypingReply()
     }
 }
 
-void HangishClient::getConversation(ClientGetConversationRequest clientGetConversationRequest)
+quint64 HangishClient::getConversation(ClientGetConversationRequest clientGetConversationRequest)
 {
+    quint64 requestId = mCurrentRequestId++;
     clientGetConversationRequest.set_allocated_requestheader(getRequestHeader1());
-
     QNetworkReply *reply = sendRequest("conversations/getconversation", Utils::msgToJsArray(clientGetConversationRequest));
     QObject::connect(reply, SIGNAL(finished()), this, SLOT(getConversationReply()));
+    mPendingRequests[reply] = requestId;
+    return requestId;
 }
 
 void HangishClient::getConversationReply()
@@ -561,7 +550,7 @@ void HangishClient::getConversationReply()
         if (variantListResponse[0].toString() == "cgcrp") {
             variantListResponse.pop_front();
             Utils::packToMessage(QVariantList() << variantListResponse, cgcr);
-            Q_EMIT clientGetConversationResponse(cgcr);
+            Q_EMIT clientGetConversationResponse(mPendingRequests.take(reply), cgcr);
             qDebug() << "ClientGetConversationResponse: " << cgcr.DebugString().c_str();
         }
     }
@@ -759,8 +748,13 @@ void HangishClient::onInitChatReply()
                 }
             }
 
+            QString cinaccReply;
+            int cinaccReplyPos = 0;
+            if ((cinaccReplyPos = sreply.indexOf("key: 'ds:2'")) != -1) {
+                cinaccReply = sreply.mid(cinaccReplyPos);
+            }
             rx.setPattern("(\\[\\[\"cin:acc\".*\\}\\}\\)\\;)");
-            if (rx.indexIn(sreply) != -1) {
+            if(rx.indexIn(cinaccReply) != -1) {
                 QString cinacc = rx.cap(1).split("}});")[0];
                 QVariantList list = Utils::jsArrayToVariantList(cinacc)[0].toList();
                 if (list[0] =="cin:acc") {

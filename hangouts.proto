@@ -698,6 +698,11 @@ message ClientMessageContent {
 }
 
 
+message ClientMessageContentList {
+    repeated ClientMessageContent messageContent                        =   1;
+}
+
+
 message ClientModifyConversationViewRequest {
     optional ClientRequestHeader requestHeader                          =   1;
     optional ClientConversationId conversationId                        =   2;
@@ -1029,7 +1034,7 @@ message ClientSendChatMessageRequest {
     optional uint64 clientGeneratedId                                   =   3;
     optional bool dummy                                                 =   4;
     repeated ClientEventAnnotation annotation                           =   5;
-    required ClientMessageContent messageContent                        =   6;
+    required ClientMessageContentList messageContentList                =   6;
     optional ClientExistingMedia existingMedia                          =   7;
     optional ClientEventRequestHeader eventRequestHeader                =   8;
     optional ClientInviteeId otherInviteeId                             =   9;
@@ -1827,11 +1832,13 @@ message Segment {
     required LinkData linkData                                          =   4;
     optional UserMentionData userMentionData                            =   5;
     optional HashtagData hashtagData                                    =   6;
-}
 
 
-message SegmentType {
-    // Nothing here
+    enum SegmentType {
+        TEXT                                                            =   0;
+        LINE_BREAK                                                      =   1;
+        LINK                                                            =   2;
+    }
 }
 
 
