@@ -151,13 +151,13 @@ message ClientConversation {
     repeated ClientParticipant participant                              =   5;
     repeated ClientParticipant inactiveParticipant                      =   6;
     optional bool dummy                                                 =   7;
-    repeated ClientConversationParticipantData participantData          =   8;
+    repeated ClientUserReadState readState                              =   8;
     optional bool hasActiveHangout                                      =   9;
     optional ClientOffTheRecordStatus otrStatus                         =   10;
     optional ClientOffTheRecordToggle otrToggle                         =   11;
     optional bool conversationHistorySupported                          =   12;
     repeated ClientParticipantId currentParticipant                     =   13;
-    repeated ClientUserReadState readState                              =   14;
+    repeated ClientConversationParticipantData participantData          =   14;
     optional bool isTemporary                                           =   15;
 }
 
