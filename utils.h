@@ -51,15 +51,15 @@ private:
                            const QVariant& value);
 
     static void setReflectionValue(const Reflection& ref,
-                            Message& msg,
-                            const FieldDescriptor* field,
-                            const QVariant& value);
+                                   Message& msg,
+                                   const FieldDescriptor* field,
+                                   const QVariant& value);
 
     static void setReflectionRepeatedValue(const Reflection& ref,
-                                    Message& msg,
-                                    const FieldDescriptor* field,
-                                    const QVariantList& list,
-                                    int size);
+                                           Message& msg,
+                                           const FieldDescriptor* field,
+                                           const QVariantList& list,
+                                           int size);
 
 };
 

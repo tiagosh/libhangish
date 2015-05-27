@@ -105,8 +105,9 @@ QByteArray HangishClient::getAuthHeader()
     QString auth_string = QString::number(time_msec);
     auth_string += " ";
     Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
-        if (cookie.name()=="SAPISID")
+        if (cookie.name()=="SAPISID") {
             auth_string += cookie.value();
+        }
     }
     auth_string += " ";
     auth_string += ORIGIN_URL;
@@ -134,8 +135,9 @@ void HangishClient::performImageUpload(QString url)
 
     QList<QNetworkCookie> reqCookies;
     Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
-        if (cookie.name()=="SAPISID" || cookie.name()=="SSID" || cookie.name()=="HSID" || cookie.name()=="APISID" || cookie.name()=="SID")
+        if (cookie.name()=="SAPISID" || cookie.name()=="SSID" || cookie.name()=="HSID" || cookie.name()=="APISID" || cookie.name()=="SID") {
             reqCookies.append(cookie);
+        }
     }
     req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(reqCookies));
     QNetworkReply * reply = mNetworkAccessManager.post(req, inFile.readAll());
@@ -166,17 +168,16 @@ void HangishClient::uploadPerformedReply()
 
             //Retrieve the id of the image
             QString imgId = obj.take("additionalInfo").toObject()
-                    .take("uploader_service.GoogleRupioAdditionalInfo").toObject()
-                    .take("completionInfo").toObject()
-                    .take("customerSpecificInfo").toObject()
-                    .take("photoid").toString();
+                            .take("uploader_service.GoogleRupioAdditionalInfo").toObject()
+                            .take("completionInfo").toObject()
+                            .take("customerSpecificInfo").toObject()
+                            .take("photoid").toString();
             qDebug() << "Sending msg with img" << imgId;
 
             sendImageMessage(mOutgoingImages.at(0).conversationId, imgId, "");
             mOutgoingImages.clear();
         }
-    }
-    else {
+    } else {
         qDebug() << "Problem uploading";
     }
     reply->deleteLater();
@@ -198,8 +199,9 @@ QNetworkReply *HangishClient::sendRequest(QString function, QString json)
 
     QList<QNetworkCookie> reqCookies;
     Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
-        if (cookie.name()=="SAPISID" || cookie.name()=="SSID" || cookie.name()=="HSID" || cookie.name()=="APISID" || cookie.name()=="SID")
+        if (cookie.name()=="SAPISID" || cookie.name()=="SSID" || cookie.name()=="HSID" || cookie.name()=="APISID" || cookie.name()=="SID") {
             reqCookies.append(cookie);
+        }
     }
     req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(reqCookies));
     QByteArray postData;
@@ -247,7 +249,9 @@ void HangishClient::sendImageMessage(QString convId, QString imgId, QString segm
     seg += "\", [0, 0, 0, 0], [null]]]";
     //qDebug() << "Sending cm " << segments;
 
-    if (segments=="") seg = "[]";
+    if (segments=="") {
+        seg = "[]";
+    }
 
     //Not really random, but works well
     qint64 time = QDateTime::currentMSecsSinceEpoch();
@@ -298,8 +302,7 @@ void HangishClient::sendMessageReply()
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
         qDebug() << "Message sent correctly: " << requestId;
         Q_EMIT messageSent(requestId);
-    }
-    else {
+    } else {
         qDebug() << "Failed to send message: " << requestId;
         Q_EMIT messageNotSent(requestId);
     }
@@ -405,8 +408,9 @@ void HangishClient::sendImage(QString segments, QString conversationId, QString 
 
     QList<QNetworkCookie> reqCookies;
     Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
-        if (cookie.name()=="SAPISID" || cookie.name()=="SSID" || cookie.name()=="HSID" || cookie.name()=="APISID" || cookie.name()=="SID")
+        if (cookie.name()=="SAPISID" || cookie.name()=="SSID" || cookie.name()=="HSID" || cookie.name()=="APISID" || cookie.name()=="SID") {
             reqCookies.append(cookie);
+        }
     }
     req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(reqCookies));
     QNetworkReply * reply = mNetworkAccessManager.post(req, doc.toJson());
@@ -434,8 +438,7 @@ void HangishClient::uploadImageReply()
         qDebug() << uploadUrl;
         reply->close();
         performImageUpload(uploadUrl);
-    }
-    else {
+    } else {
         qDebug() << "Problem uploading " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     }
     reply->deleteLater();
@@ -446,15 +449,17 @@ void HangishClient::setPresence(bool goingOffline)
     QString body = "[";
     body += getRequestHeader();
     body += ", [720, ";
-    if (goingOffline)
+    if (goingOffline) {
         body += "1";
-    else
+    } else {
         body += "40";
+    }
     body += "], null, null, [";
-    if (goingOffline)
+    if (goingOffline) {
         body += "1";
-    else
+    } else {
         body += "0";
+    }
     body += "], []]";
     qDebug() << body;
     QNetworkReply *reply = sendRequest("presence/setpresence",body);
@@ -601,8 +606,9 @@ void HangishClient::syncAllNewEventsReply()
 void HangishClient::setActiveClient()
 {
     QDateTime now = QDateTime::currentDateTime();
-    if (mLastSetActive.addSecs(SETACTIVECLIENT_LIMIT_SECS) > now)
+    if (mLastSetActive.addSecs(SETACTIVECLIENT_LIMIT_SECS) > now) {
         return;
+    }
     mLastSetActive = now;
     QString body = "[";
     body += getRequestHeader();
@@ -625,8 +631,7 @@ void HangishClient::setActiveClientReply()
     qDebug() << "Set active client response " << sreply;
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()!=200) {
         qDebug() << "There was an error setting active client! " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    }
-    else {
+    } else {
         //I've just set this; I can assume I am the active client
         //notifier->activeClientUpdate(IS_ACTIVE_CLIENT);
     }
@@ -707,11 +712,10 @@ void HangishClient::onInitChatReply()
         if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==302) {
             qDebug() << "Redir";
             QVariant possibleRedirectUrl =
-                    reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
+                reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
             followRedirection(possibleRedirectUrl.toUrl());
             reply->deleteLater();
-        }
-        else {
+        } else {
             QString sreply = reply->readAll();
 
             QRegExp rx("(\\[\\[\"cin:cac\".*\\}\\}\\)\\;)");
@@ -754,7 +758,7 @@ void HangishClient::onInitChatReply()
                 cinaccReply = sreply.mid(cinaccReplyPos);
             }
             rx.setPattern("(\\[\\[\"cin:acc\".*\\}\\}\\)\\;)");
-            if(rx.indexIn(cinaccReply) != -1) {
+            if (rx.indexIn(cinaccReply) != -1) {
                 QString cinacc = rx.cap(1).split("}});")[0];
                 QVariantList list = Utils::jsArrayToVariantList(cinacc)[0].toList();
                 if (list[0] =="cin:acc") {
@@ -820,8 +824,7 @@ void HangishClient::onInitChatReply()
             reply->deleteLater();
             Q_EMIT initFinished();
         }
-    }
-    else {
+    } else {
         //failure
         //qDebug() << "Failure" << reply->errorString();
         reply->deleteLater();
@@ -876,8 +879,7 @@ void HangishClient::onGetPVTTokenReply()
             mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
             initChat(pvttoken.token().c_str());
         }
-    }
-    else {
+    } else {
         qDebug() << "Pvt req returned " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         reply->close();
     }

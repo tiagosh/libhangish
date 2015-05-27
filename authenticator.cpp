@@ -48,7 +48,9 @@ void Authenticator::authenticate()
         QJsonObject obj = doc.object();
         Q_FOREACH  (QString s, obj.keys()) {
             //TODO: check and delete
-            if (s=="ACCOUNT_CHOOSER" || s=="GALX" || s=="GAPS" || s=="LSID" || s=="NID") continue;
+            if (s=="ACCOUNT_CHOOSER" || s=="GALX" || s=="GAPS" || s=="LSID" || s=="NID") {
+                continue;
+            }
             QNetworkCookie tmp;
             tmp.setName(QVariant(s).toByteArray());
             tmp.setValue(obj.value(s).toVariant().toByteArray());
@@ -74,8 +76,7 @@ void Authenticator::networkCallback(QNetworkReply *reply)
     qDebug() << "Authenticator::networkCallback" << mAuthPhase << mSessionCookies;
     if (reply->error() == QNetworkReply::NoError) {
         switch (mAuthPhase) {
-        case AUTH_PHASE_GALX_REQUESTED:
-        {
+        case AUTH_PHASE_GALX_REQUESTED: {
             QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
             QList<QNetworkCookie> cookies = qvariant_cast<QList<QNetworkCookie> >(v);
             Q_FOREACH(QNetworkCookie cookie, cookies) {
@@ -86,11 +87,10 @@ void Authenticator::networkCallback(QNetworkReply *reply)
             }
             break;
         }
-        case AUTH_PHASE_CREDENTIALS_SENT:
-        {
+        case AUTH_PHASE_CREDENTIALS_SENT: {
             if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==302) {
                 QVariant possibleRedirectUrl =
-                        reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
+                    reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
                 qDebug() << "redirected" << possibleRedirectUrl.toUrl();
                 followRedirection(possibleRedirectUrl.toUrl());
             } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
@@ -118,10 +118,7 @@ void Authenticator::networkCallback(QNetworkReply *reply)
                     qDebug() << mSecTok;
                     qDebug() << mTimeStmp;
                     Q_EMIT authFailed(AUTH_NEED_2FACTOR_PIN);
-                } else /*if (reply->url().toString().startsWith(SERVICE_LOGIN_AUTH_URL)) {
-                    qDebug() << mSessionCookies;
-                    getGalxToken();
-                } else*/ {
+                } else {
                     //Something went wrong
                     qDebug() << "Auth failed " << reply->url();
                     mSessionCookies.clear();
@@ -134,8 +131,7 @@ void Authenticator::networkCallback(QNetworkReply *reply)
             }
             break;
         }
-        case AUTH_PHASE_2FACTOR_PIN_SENT:
-        {
+        case AUTH_PHASE_2FACTOR_PIN_SENT: {
             //2nd factor response
             if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
                 //TODO: is this really a consistent check for everyone?
@@ -147,7 +143,7 @@ void Authenticator::networkCallback(QNetworkReply *reply)
                 }
             } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==302) {
                 QVariant possibleRedirectUrl =
-                        reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
+                    reply->attribute(QNetworkRequest::RedirectionTargetAttribute);
 
                 followRedirection(possibleRedirectUrl.toUrl());
             } else {
@@ -278,10 +274,10 @@ bool Authenticator::amILoggedIn()
     Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
         qDebug() << cookie.name();
         if (cookie.name()=="APISID" ||
-                cookie.name()=="HSID" ||
-                cookie.name()=="SAPISID" ||
-                cookie.name()=="SID" ||
-                cookie.name()=="SSID") {
+            cookie.name()=="HSID" ||
+            cookie.name()=="SAPISID" ||
+            cookie.name()=="SID" ||
+            cookie.name()=="SSID") {
             i++;
         }
     }

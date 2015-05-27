@@ -30,7 +30,7 @@
 void Utils::hangishMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
     if (!qEnvironmentVariableIsSet("HANGISH_DEBUG")) {
-         return;
+        return;
     }
 
     QByteArray localMsg = msg.toLocal8Bit();
@@ -50,7 +50,8 @@ void Utils::hangishMessageOutput(QtMsgType type, const QMessageLogContext &conte
     }
 }
 
-QVariantList Utils::jsArrayToVariantList(const QString &jsArray) {
+QVariantList Utils::jsArrayToVariantList(const QString &jsArray)
+{
     QScriptEngine engine;
     QScriptValue tree = engine.evaluate(jsArray);
     return tree.toVariant().toList();
@@ -59,7 +60,8 @@ QVariantList Utils::jsArrayToVariantList(const QString &jsArray) {
 void Utils::setMessage(const Reflection& ref,
                        Message& msg,
                        const FieldDescriptor* field,
-                       const QVariant& value) {
+                       const QVariant& value)
+{
     Message *sub_msg = ref.MutableMessage(&msg, field);
     Q_ASSERT(sub_msg);
     if (value.canConvert(QMetaType::QVariantList)) {
@@ -68,9 +70,10 @@ void Utils::setMessage(const Reflection& ref,
 }
 
 void Utils::setReflectionValue(const Reflection& ref,
-                        Message& msg,
-                        const FieldDescriptor* field,
-                        const QVariant& value) {
+                               Message& msg,
+                               const FieldDescriptor* field,
+                               const QVariant& value)
+{
     const EnumValueDescriptor * descriptor = NULL;
     switch (field->cpp_type()) {
     case FieldDescriptor::CPPTYPE_INT32:
@@ -110,10 +113,11 @@ void Utils::setReflectionValue(const Reflection& ref,
 }
 // TODO: Handle invalid QVariant that cannot be converted
 void Utils::setReflectionRepeatedValue(const Reflection& ref,
-                                Message& msg,
-                                const FieldDescriptor* field,
-                                const QVariantList& list,
-                                int size) {
+                                       Message& msg,
+                                       const FieldDescriptor* field,
+                                       const QVariantList& list,
+                                       int size)
+{
 #define PROTOBUF_QML_ADD_REPEATED(TYPE_ENUM, TYPE, CPP_TYPE)           \
     case FieldDescriptor::CPPTYPE_##TYPE_ENUM:                           \
     for (int i = 0; i < size; i++)                                     \
@@ -121,16 +125,17 @@ void Utils::setReflectionRepeatedValue(const Reflection& ref,
     break;
 
     switch (field->cpp_type()) {
-    PROTOBUF_QML_ADD_REPEATED(INT32, Int32, int32);
-    PROTOBUF_QML_ADD_REPEATED(INT64, Int64, int64);
-    PROTOBUF_QML_ADD_REPEATED(UINT32, UInt32, uint32);
-    PROTOBUF_QML_ADD_REPEATED(UINT64, UInt64, uint64);
-    PROTOBUF_QML_ADD_REPEATED(DOUBLE, Double, double);
-    PROTOBUF_QML_ADD_REPEATED(FLOAT, Float, float);
-    PROTOBUF_QML_ADD_REPEATED(BOOL, Bool, bool);
+        PROTOBUF_QML_ADD_REPEATED(INT32, Int32, int32);
+        PROTOBUF_QML_ADD_REPEATED(INT64, Int64, int64);
+        PROTOBUF_QML_ADD_REPEATED(UINT32, UInt32, uint32);
+        PROTOBUF_QML_ADD_REPEATED(UINT64, UInt64, uint64);
+        PROTOBUF_QML_ADD_REPEATED(DOUBLE, Double, double);
+        PROTOBUF_QML_ADD_REPEATED(FLOAT, Float, float);
+        PROTOBUF_QML_ADD_REPEATED(BOOL, Bool, bool);
     case FieldDescriptor::CPPTYPE_STRING:
-        for (int i = 0; i < size; i++)
+        for (int i = 0; i < size; i++) {
             ref.AddString(&msg, field, list[i].value<QString>().toStdString());
+        }
         break;
     case FieldDescriptor::CPPTYPE_ENUM:
         for (int i = 0; i < size; i++)
@@ -148,7 +153,8 @@ void Utils::setReflectionRepeatedValue(const Reflection& ref,
 }
 
 bool Utils::packToMessage(const QVariantList& fields,
-                          Message& msg) {
+                          Message& msg)
+{
     const Reflection *reflection = msg.GetReflection();
     const Descriptor *descriptor = msg.GetDescriptor();
     int field_count = descriptor->field_count();
@@ -208,7 +214,8 @@ bool Utils::packToMessage(const QVariantList& fields,
     items << QString("\"") + QString(reflection->TO_FUNCTION(msg, field).c_str()) + QString("\"");      \
     break;
 
-QString Utils::msgToJsArray(Message &msg) {
+QString Utils::msgToJsArray(Message &msg)
+{
     QStringList items;
     const Reflection *reflection = msg.GetReflection();
     const Descriptor *descriptor = msg.GetDescriptor();
@@ -222,16 +229,16 @@ QString Utils::msgToJsArray(Message &msg) {
                 items << "[]";
                 continue;
             }
-            switch(field->cpp_type()) {
-            REPEATED_NUMBER_TO_STRING(BOOL, GetRepeatedBool);
-            REPEATED_NUMBER_TO_STRING(DOUBLE, GetRepeatedDouble);
-            REPEATED_TO_STRING_ENUM(ENUM);
-            REPEATED_NUMBER_TO_STRING(FLOAT, GetRepeatedFloat);
-            REPEATED_NUMBER_TO_STRING(INT32, GetRepeatedInt32);
-            REPEATED_NUMBER_TO_STRING(INT64, GetRepeatedInt64);
-            REPEATED_NUMBER_TO_STRING(UINT32, GetRepeatedUInt32);
-            REPEATED_NUMBER_TO_STRING(UINT64, GetRepeatedUInt64);
-            REPEATED_STRING_TO_STRING(STRING, GetRepeatedString);
+            switch (field->cpp_type()) {
+                REPEATED_NUMBER_TO_STRING(BOOL, GetRepeatedBool);
+                REPEATED_NUMBER_TO_STRING(DOUBLE, GetRepeatedDouble);
+                REPEATED_TO_STRING_ENUM(ENUM);
+                REPEATED_NUMBER_TO_STRING(FLOAT, GetRepeatedFloat);
+                REPEATED_NUMBER_TO_STRING(INT32, GetRepeatedInt32);
+                REPEATED_NUMBER_TO_STRING(INT64, GetRepeatedInt64);
+                REPEATED_NUMBER_TO_STRING(UINT32, GetRepeatedUInt32);
+                REPEATED_NUMBER_TO_STRING(UINT64, GetRepeatedUInt64);
+                REPEATED_STRING_TO_STRING(STRING, GetRepeatedString);
             case FieldDescriptor::CPPTYPE_MESSAGE:
                 for (int j = 0; j < size; ++j) {
                     Message *msg2 = reflection->MutableRepeatedMessage(&msg, field,j);
@@ -248,16 +255,16 @@ QString Utils::msgToJsArray(Message &msg) {
                 }
                 continue;
             }
-            switch(field->cpp_type()) {
-            NUMBER_TO_STRING(BOOL, GetBool);
-            NUMBER_TO_STRING(DOUBLE, GetDouble);
-            NUMBER_TO_STRING_ENUM(ENUM);
-            NUMBER_TO_STRING(FLOAT, GetFloat);
-            NUMBER_TO_STRING(INT32, GetInt32);
-            NUMBER_TO_STRING(INT64, GetInt64);
-            NUMBER_TO_STRING(UINT32, GetUInt32);
-            NUMBER_TO_STRING(UINT64, GetUInt64);
-            STRING_TO_STRING(STRING, GetString);
+            switch (field->cpp_type()) {
+                NUMBER_TO_STRING(BOOL, GetBool);
+                NUMBER_TO_STRING(DOUBLE, GetDouble);
+                NUMBER_TO_STRING_ENUM(ENUM);
+                NUMBER_TO_STRING(FLOAT, GetFloat);
+                NUMBER_TO_STRING(INT32, GetInt32);
+                NUMBER_TO_STRING(INT64, GetInt64);
+                NUMBER_TO_STRING(UINT32, GetUInt32);
+                NUMBER_TO_STRING(UINT64, GetUInt64);
+                STRING_TO_STRING(STRING, GetString);
             case FieldDescriptor::CPPTYPE_MESSAGE:
                 Message *msg2 = reflection->MutableMessage(&msg, field);
                 items << msgToJsArray(*msg2);
