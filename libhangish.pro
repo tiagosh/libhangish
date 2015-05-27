@@ -1,4 +1,3 @@
-# The name of your application
 QT += network script xml
 QT -= gui
 TARGET = hangish
@@ -23,3 +22,15 @@ HEADERS += \
     authenticator.h \
     types.h \
     utils.h
+
+astyle.params += --style=linux
+astyle.params += -z2
+astyle.params += -c
+astyle.params += --add-brackets
+astyle.params += -H
+astyle.commands = cd $$PWD; astyle $$astyle.params $$HEADERS $$SOURCES
+
+QMAKE_EXTRA_TARGETS += astyle
+exists("/usr/bin/astyle") {
+    PRE_TARGETDEPS += astyle
+}
