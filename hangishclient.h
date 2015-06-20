@@ -22,11 +22,13 @@
 #ifndef HANGISHCLIENT_H
 #define HANGISHCLIENT_H
 
+#include <QNetworkCookie>
+#include <QNetworkReply>
+#include <QNetworkCookieJar>
 #include <QDateTime>
 
 #include "authenticator.h"
 #include "channel.h"
-#include "utils.h"
 #include "types.h"
 
 class HangishClient : public QObject
