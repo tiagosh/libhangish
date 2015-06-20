@@ -590,8 +590,24 @@ message ClientGetSuggestedEntitiesRequest {
 
 message ClientGetSuggestedEntitiesResponse {
     optional ClientResponseHeader responseHeader                        =   1;
-    repeated ClientEntity entity                                        =   2;
+    repeated ClientEntity suggestedEntity                               =   2;
     optional bool scoringFailed                                         =   3;
+    optional ClientContactGroup searchContacts                          =   4;
+    optional ClientContactGroup hangoutContacts                         =   5;
+    optional ClientContactGroup allContacts                             =   6;
+}
+
+
+message ClientContactGroup {
+    optional int32 dummy                                                =   1;
+    optional string id                                                  =   2;
+    repeated ClientContactEntity contactEntity                          =   3;
+}
+
+
+message ClientContactEntity {
+    optional ClientEntity entity                                        =   1;
+    optional int32 dummy                                                =   2;
 }
 
 
@@ -854,10 +870,20 @@ message ClientPresenceStateSetting {
 }
 
 
+message ClientParticipantList {
+    repeated ClientParticipantId participantId                          =   1;
+}
+
+
+message ClientFieldMaskList {
+    repeated ClientQueryPresenceRequest.ClientFieldMask fieldMask       =   1;
+}
+
+
 message ClientQueryPresenceRequest {
     optional ClientRequestHeader requestHeader                          =   1;
-    repeated ClientParticipantId participantId                          =   2;
-    repeated ClientFieldMask fieldMask                                  =   3;
+    optional ClientParticipantList participantList                      =   2;
+    optional ClientFieldMaskList fieldMaskList                          =   3;
 
 
     enum ClientFieldMask {

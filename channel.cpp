@@ -139,7 +139,6 @@ void Channel::networReadyRead()
     //Eventually update cookies, may set S
     bool cookieUpdated = false;
     Q_FOREACH (QNetworkCookie cookie, c) {
-        qDebug() << cookie.name();
         if (mSessionCookies.contains(cookie.name())) {
             mSessionCookies[cookie.name()] = cookie;
             Q_EMIT cookieUpdateNeeded(cookie);
@@ -292,6 +291,7 @@ void Channel::onFetchNewSidReply()
         // drop first line (character count)
         reply->readLine();
         QString rep = reply->readAll();
+        qDebug() << "new SID reply " << rep;
         QVariantList sidResponse = Utils::jsArrayToVariantList(rep);
         // first contains the new sid only
         QVariantList sidOp = sidResponse.takeFirst().toList();

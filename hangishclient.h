@@ -40,6 +40,7 @@ public:
     ClientEntity getUserById(QString chatId);
     void initChat(QString pvt);
     quint64 sendChatMessage(ClientSendChatMessageRequest clientSendChatMessageRequest);
+    quint64 queryPresence(const QStringList &chatIds);
     void sendImage(QString segments, QString conversationId, QString filename);
     void sendCredentials(QString uname, QString passwd);
     void send2ndFactorPin(QString pin);
@@ -47,11 +48,12 @@ public:
     void setActiveClient();
     void setFocus(QString convId, int status);
     void setTyping(QString convId, int status);
-    void setPresence(bool goingOffline);
+    quint64 setPresence(bool goingOnline);
     quint64 getConversation(ClientGetConversationRequest clientGetConversationRequest);
     void hangishDisconnect();
     void hangishConnect(quint64 lastKnownPushTs = 0);
     ClientEntity getMyself();
+    QMap<QString, ClientEntity> getUsers();
 
 public Q_SLOTS:
     void updateWatermark(QString convId);
@@ -59,6 +61,7 @@ public Q_SLOTS:
     void initDone();
     void onInitChatReply();
     void sendMessageReply();
+    void queryPresenceReply();
     void uploadImageReply();
     void uploadPerformedReply();
     void syncAllNewEventsReply();
@@ -82,12 +85,13 @@ Q_SIGNALS:
     void clientStateUpdate(ClientStateUpdate &csu);
     void clientSyncAllNewEventsResponse(ClientSyncAllNewEventsResponse &csanerp);
     void clientGetConversationResponse(quint64 requestId, ClientGetConversationResponse &cgcr);
+    void clientSetPresenceResponse(quint64, ClientSetPresenceResponse &csprp);
+    void clientQueryPresenceResponse(quint64, ClientQueryPresenceResponse &cqprp);
 
 private Q_SLOTS:
     void onClientBatchUpdate(ClientBatchUpdate &cbu);
     void onGetPVTTokenReply();
     void onChannelRestored(quint64 lastRec);
-
 private:
     void sendImageMessage(QString convId, QString imgId, QString segments);
     void performImageUpload(QString url);
@@ -121,6 +125,7 @@ private:
     QMap<QString, ClientEntity> mUsers;
     QMap<QString, ClientConversationState> mConversations;
     QMap<QNetworkReply*, quint64> mPendingRequests;
+
 };
 
 #endif // HANGISHCLIENT_H

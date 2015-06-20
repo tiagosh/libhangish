@@ -23,6 +23,8 @@
 #include <QJsonObject>
 #include <QFile>
 #include <QJsonArray>
+#include <QDomDocument>
+#include <QDomNodeList>
 #include <QUrlQuery>
 
 #include "hangishclient.h"
@@ -39,6 +41,7 @@ HangishClient::HangishClient(const QString &pCookiePath) :
     QObject::connect(mAuthenticator, SIGNAL(gotCookies(QMap<QString,QNetworkCookie>)), this, SLOT(onAuthenticationDone(QMap<QString,QNetworkCookie>)));
     QObject::connect(mAuthenticator, SIGNAL(loginNeeded()), this, SIGNAL(loginNeeded()));
     QObject::connect(mAuthenticator, SIGNAL(authFailed(AuthenticationStatus,QString)), this, SIGNAL(authFailed(AuthenticationStatus,QString)));
+    //QObject::connect(this, SIGNAL(initFinished()), this, SLOT(initDone()));
     qsrand((uint)QTime::currentTime().msec());
     mCurrentRequestId = qrand();
 }
@@ -64,7 +67,7 @@ void HangishClient::hangishDisconnect()
     QObject::disconnect(mChannel, 0, 0, 0);
     mChannel->deleteLater();
     mChannel = NULL;
-    mClid = QString::null;
+    mClid.clear();
 }
 
 void HangishClient::hangishConnect(quint64 lastKnownPushTs)
@@ -222,7 +225,7 @@ ClientRequestHeader *HangishClient::getRequestHeader1()
     clientVersion->set_majorversion(mHeaderVersion.toStdString());
     clientVersion->set_version(mHeaderDate.toLongLong());
 
-    clientIdentifier->set_resource(mClid.toStdString());
+    //clientIdentifier->set_resource(mClid.toStdString());
     clientIdentifier->set_headerid(mHeaderId.toStdString());
 
     requestHeader->set_allocated_clientversion(clientVersion);
@@ -447,57 +450,26 @@ void HangishClient::uploadImageReply()
     reply->deleteLater();
 }
 
-quint64 HangishClient::queryPresence(const QStringList &chatIds)
+quint64 HangishClient::setPresence(bool goingOffline)
 {
     quint64 requestId = mCurrentRequestId++;
-    ClientQueryPresenceRequest clientQueryPresenceRequest;
-    ClientParticipantList *participantList = new ClientParticipantList();
-    ClientFieldMaskList *fieldMaskList = new ClientFieldMaskList();
-    clientQueryPresenceRequest.set_allocated_requestheader(getRequestHeader1());
-    clientQueryPresenceRequest.set_allocated_participantlist(participantList);
-    clientQueryPresenceRequest.set_allocated_fieldmasklist(fieldMaskList);
-    Q_FOREACH(const QString &chatId, chatIds) {
-        ClientParticipantId *participantId = participantList->add_participantid();
-        participantId->set_gaiaid(chatId.toLocal8Bit().data());
+    QString body = "[";
+    body += getRequestHeader();
+    body += ", [720, ";
+    if (goingOffline) {
+        body += "1";
+    } else {
+        body += "40";
     }
-    fieldMaskList->add_fieldmask(ClientQueryPresenceRequest_ClientFieldMask_AVAILABILITY);
-    fieldMaskList-> add_fieldmask(ClientQueryPresenceRequest_ClientFieldMask_STATUS_MESSAGE);
-    QNetworkReply *reply = sendRequest("presence/querypresence", Utils::msgToJsArray(clientQueryPresenceRequest));
-    mPendingRequests[reply] = requestId;
-    QObject::connect(reply, SIGNAL(finished()), this, SLOT(queryPresenceReply()));
-    return requestId;
-}
-
-void HangishClient::queryPresenceReply()
-{
-    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
-    QString sreply = reply->readAll();
-    qDebug() << "query presence response " << sreply;
-    ClientQueryPresenceResponse cqprp;
-    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()!=200) {
-        qDebug() << "There was an error getting presence! " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        return;
+    body += "], null, null, [";
+    if (goingOffline) {
+        body += "1";
+    } else {
+        body += "0";
     }
-    QVariantList variantListResponse = Utils::jsArrayToVariantList(sreply);
-    if (variantListResponse[0].toString() == "cqprp") {
-        variantListResponse.pop_front();
-        Utils::packToMessage(QVariantList() << variantListResponse, cqprp);
-        Q_EMIT clientQueryPresenceResponse(mPendingRequests.take(reply), cqprp);
-        qDebug() << "ClientQueryPresenceResponse: " << cqprp.DebugString().c_str();
-    }
-}
-
-quint64 HangishClient::setPresence(bool goingOnline)
-{
-    quint64 requestId = mCurrentRequestId++;
-    ClientSetPresenceRequest clientSetPresenceRequest;
-    clientSetPresenceRequest.set_allocated_requestheader(getRequestHeader1());
-    ClientPresenceStateSetting *clientPresenceStateSetting = new ClientPresenceStateSetting();
-    clientPresenceStateSetting->set_timeoutsecs(720);
-    clientPresenceStateSetting->set_presencestate(goingOnline ? ClientPresenceStateSetting_ClientPresenceState_DESKTOP_ACTIVE : ClientPresenceStateSetting_ClientPresenceState_MOBILE);
-    clientSetPresenceRequest.set_allocated_presencestatesetting(clientPresenceStateSetting);
-
-    QNetworkReply *reply = sendRequest("presence/setpresence", Utils::msgToJsArray(clientSetPresenceRequest));
+    body += "], []]";
+    qDebug() << body;
+    QNetworkReply *reply = sendRequest("presence/setpresence",body);
     mPendingRequests[reply] = requestId;
     QObject::connect(reply, SIGNAL(finished()), this, SLOT(setPresenceReply()));
     return requestId;
@@ -843,11 +815,11 @@ void HangishClient::onInitChatReply()
                     list.removeAt(0);
                     ClientGetSuggestedEntitiesResponse clientGetSuggestedEntitiesResponse;
                     Utils::packToMessage(list, clientGetSuggestedEntitiesResponse);
-                    if (clientGetSuggestedEntitiesResponse.has_hangoutcontacts()) {
-                        ClientContactGroup contactGroup = clientGetSuggestedEntitiesResponse.hangoutcontacts();
-                        for (int i =0; i < contactGroup.contactentity_size(); i++) {
-                            ClientContactEntity contactEntity = contactGroup.contactentity(i);
-                            ClientEntity entity = contactEntity.entity();
+                    if (clientGetSuggestedEntitiesResponse.has_hangoutentity()) {
+                        ClientEntityGroup entityGroup = clientGetSuggestedEntitiesResponse.hangoutentity();
+
+                        for (int j=0; j < entityGroup.entity_size(); j++) {
+                            ClientEntity entity = entityGroup.entity(j);
                             mUsers[QString(entity.id().chatid().c_str())] = entity;
                         }
                     }
@@ -855,31 +827,33 @@ void HangishClient::onInitChatReply()
                 }
             }
 
-            //Parse conversations
-            rx.setPattern("(\\[\\[\"csrcrp\".*\\}\\}\\)\\;)");
-            if (rx.indexIn(sreply) != -1) {
-                QString csrcrp = rx.cap(1).split("}});")[0];
-                QVariantList list = Utils::jsArrayToVariantList(csrcrp)[0].toList();
-                if (list[0] =="csrcrp") {
-                    list.removeAt(0);
-                    ClientSyncRecentConversationsResponse clientSyncRecentConversationsResponse;
-                    Utils::packToMessage(list, clientSyncRecentConversationsResponse);
-                    for (int i=0; i < clientSyncRecentConversationsResponse.conversationstate_size(); i++) {
-                        ClientConversationState conv = clientSyncRecentConversationsResponse.conversationstate(i);
-                        mConversations[QString(conv.conversationid().id().c_str())] = conv;
-                    }
-                    //qDebug() << clientSyncRecentConversationsResponse.DebugString().c_str();
+        //Parse conversations
+        rx.setPattern("(\\[\\[\"csrcrp\".*\\}\\}\\)\\;)");
+        if (rx.indexIn(sreply) != -1) {
+            QString csrcrp = rx.cap(1).split("}});")[0];
+            QVariantList list = Utils::jsArrayToVariantList(csrcrp)[0].toList();
+            if (list[0] =="csrcrp") {
+                list.removeAt(0);
+                ClientSyncRecentConversationsResponse clientSyncRecentConversationsResponse;
+                Utils::packToMessage(list, clientSyncRecentConversationsResponse);
+                for (int i=0; i < clientSyncRecentConversationsResponse.conversationstate_size(); i++) {
+                    ClientConversationState conv = clientSyncRecentConversationsResponse.conversationstate(i);
+                    mConversations[QString(conv.conversationid().id().c_str())] = conv;
                 }
-
+                //qDebug() << clientSyncRecentConversationsResponse.DebugString().c_str();
             }
-            reply->deleteLater();
-            initDone();
+
         }
-    } else {
-        //failure
-        //qDebug() << "Failure" << reply->errorString();
         reply->deleteLater();
+        initDone();
     }
+}
+else
+{
+    //failure
+    //qDebug() << "Failure" << reply->errorString();
+    reply->deleteLater();
+}
 }
 
 void HangishClient::onAuthenticationDone(QMap<QString, QNetworkCookie> cookies)
