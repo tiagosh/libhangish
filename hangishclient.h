@@ -37,25 +37,25 @@ class HangishClient : public QObject
 
 public:
     HangishClient(const QString &cookiePath);
-    QString getSelfChatId();
-    ClientConversationState getConvById(const QString &cid);
-    ClientEntity getUserById(QString chatId);
-    void initChat(QString pvt);
+    QString getSelfChatId() const;
+    ClientConversationState getConvById(const QString &cid) const;
+    ClientEntity getUserById(const QString &chatId) const;
+    void initChat(const QString &pvt);
     quint64 sendChatMessage(ClientSendChatMessageRequest clientSendChatMessageRequest);
     quint64 queryPresence(const QStringList &chatIds);
-    void sendImage(QString segments, QString conversationId, QString filename);
-    void sendCredentials(QString uname, QString passwd);
-    void send2ndFactorPin(QString pin);
+    void sendImage(const QString &segments, const QString &conversationId, const QString &filename);
+    void sendCredentials(const QString &uname, const QString &passwd);
+    void send2ndFactorPin(const QString &pin);
     void deleteCookies();
     void setActiveClient();
-    void setFocus(QString convId, int status);
-    void setTyping(QString convId, int status);
+    void setFocus(const QString &convId, int status);
+    void setTyping(const QString &convId, int status);
     quint64 setPresence(bool goingOnline);
     quint64 getConversation(ClientGetConversationRequest clientGetConversationRequest);
     void hangishDisconnect();
     void hangishConnect(quint64 lastKnownPushTs = 0);
-    ClientEntity getMyself();
-    QMap<QString, ClientEntity> getUsers();
+    ClientEntity getMyself() const;
+    QMap<QString, ClientEntity> getUsers() const;
 
 public Q_SLOTS:
     void updateWatermark(QString convId);
@@ -95,18 +95,17 @@ private Q_SLOTS:
     void onGetPVTTokenReply();
     void onChannelRestored(quint64 lastRec);
 private:
-    void sendImageMessage(QString convId, QString imgId, QString segments);
-    void performImageUpload(QString url);
+    void sendImageMessage(const QString &convId, const QString &imgId, const QString &segments);
+    void performImageUpload(const QString &url);
 
     void getPVTToken();
 
-    QString getRequestHeader();
-    ClientRequestHeader *getRequestHeader1();
-    void parseConversationState(QString conv);
-    void followRedirection(QUrl url);
+    QString getRequestHeader() const;
+    ClientRequestHeader *getRequestHeader1() const;
+    void followRedirection(const QUrl &url);
 
-    QByteArray getAuthHeader();
-    QNetworkReply * sendRequest(QString function, QString json);
+    QByteArray getAuthHeader() const;
+    QNetworkReply *sendRequest(const QString &function, const QString &json);
     void syncAllNewEvents(quint64 timestamp);
 
     bool mAppPaused;

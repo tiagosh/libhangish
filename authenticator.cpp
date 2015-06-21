@@ -220,7 +220,7 @@ void Authenticator::saveAuthCookies()
     mSessionCookies = liveSessionCookies;
 }
 
-void Authenticator::sendCredentials(QString uname, QString passwd)
+void Authenticator::sendCredentials(const QString &uname, const QString &passwd)
 {
     qDebug() << "sendCredentials";
     mAuthPhase = AUTH_PHASE_CREDENTIALS_SENT;
@@ -245,7 +245,7 @@ void Authenticator::sendCredentials(QString uname, QString passwd)
     mNetworkAccessManager.post(req, query.toString(QUrl::FullyEncoded).toUtf8());
 }
 
-void Authenticator::send2ndFactorPin(QString pin)
+void Authenticator::send2ndFactorPin(const QString &pin)
 {
     mAuthPhase = AUTH_PHASE_2FACTOR_PIN_SENT;
 
@@ -268,7 +268,7 @@ void Authenticator::send2ndFactorPin(QString pin)
     mNetworkAccessManager.post(req, query.toString(QUrl::FullyEncoded).toUtf8());
 }
 
-bool Authenticator::amILoggedIn()
+bool Authenticator::amILoggedIn() const
 {
     int i = 0;
     Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
@@ -284,7 +284,7 @@ bool Authenticator::amILoggedIn()
     return (i >= 5);
 }
 
-void Authenticator::updateCookieFile(QList<QNetworkCookie> cookies)
+void Authenticator::updateCookieFile(const QList<QNetworkCookie> &cookies)
 {
     QJsonObject obj;
     mSessionCookies.clear();

@@ -35,10 +35,10 @@ class Authenticator : public QObject
 
 public:
     Authenticator(const QString &cookiePath);
-    void updateCookieFile(QList<QNetworkCookie> cookies);
+    void updateCookieFile(const QList<QNetworkCookie> &cookies);
     void authenticate();
-    void sendCredentials(QString uname, QString passwd);
-    void send2ndFactorPin(QString pin);
+    void sendCredentials(const QString &uname, const QString &passwd);
+    void send2ndFactorPin(const QString &pin);
     void getGalxToken();
 
 public Q_SLOTS:
@@ -52,7 +52,7 @@ Q_SIGNALS:
 private:
     void saveAuthCookies();
     void followRedirection(QUrl url);
-    bool amILoggedIn();
+    bool amILoggedIn() const;
 
     QMap<QString, QNetworkCookie> mSessionCookies;
     QNetworkAccessManager mNetworkAccessManager;

@@ -73,7 +73,7 @@ void HangishClient::hangishConnect(quint64 lastKnownPushTs)
     mAuthenticator->authenticate();
 }
 
-QString HangishClient::getSelfChatId()
+QString HangishClient::getSelfChatId() const
 {
     if (mMyself.has_id() && mMyself.id().has_chatid()) {
         return mMyself.id().chatid().c_str();
@@ -81,27 +81,27 @@ QString HangishClient::getSelfChatId()
     return QString();
 }
 
-ClientEntity HangishClient::getMyself()
+ClientEntity HangishClient::getMyself() const
 {
     return mMyself;
 }
 
-QMap<QString, ClientEntity> HangishClient::getUsers()
+QMap<QString, ClientEntity> HangishClient::getUsers() const
 {
     return mUsers;
 }
 
-ClientEntity HangishClient::getUserById(QString chatId)
+ClientEntity HangishClient::getUserById(const QString &chatId) const
 {
     return mUsers[chatId];
 }
 
-ClientConversationState HangishClient::getConvById(const QString &convId)
+ClientConversationState HangishClient::getConvById(const QString &convId) const
 {
     return mConversations[convId];
 }
 
-QByteArray HangishClient::getAuthHeader()
+QByteArray HangishClient::getAuthHeader() const
 {
     QByteArray res = "SAPISIDHASH ";
     qint64 time_msec = QDateTime::currentMSecsSinceEpoch();//1000;
@@ -120,7 +120,7 @@ QByteArray HangishClient::getAuthHeader()
     return res;
 }
 
-void HangishClient::performImageUpload(QString url)
+void HangishClient::performImageUpload(const QString &url)
 {
     OutgoingImage oi = mOutgoingImages.at(0);
 
@@ -186,7 +186,7 @@ void HangishClient::uploadPerformedReply()
     reply->deleteLater();
 }
 
-QNetworkReply *HangishClient::sendRequest(QString function, QString json)
+QNetworkReply *HangishClient::sendRequest(const QString &function, const QString &json)
 {
     QUrl url(ENDPOINT_URL + function);
     QUrlQuery query;
@@ -212,7 +212,7 @@ QNetworkReply *HangishClient::sendRequest(QString function, QString json)
     return mNetworkAccessManager.post(req, postData);
 }
 
-ClientRequestHeader *HangishClient::getRequestHeader1()
+ClientRequestHeader *HangishClient::getRequestHeader1() const
 {
     ClientRequestHeader *requestHeader =  new ClientRequestHeader;
     ClientClientVersion *clientVersion = new ClientClientVersion;
@@ -233,7 +233,7 @@ ClientRequestHeader *HangishClient::getRequestHeader1()
     return requestHeader;
 }
 
-QString HangishClient::getRequestHeader()
+QString HangishClient::getRequestHeader() const
 {
     QString res = "[[3, 3, \"";
     res += mHeaderVersion;
@@ -245,7 +245,7 @@ QString HangishClient::getRequestHeader()
     return res;
 }
 
-void HangishClient::sendImageMessage(QString convId, QString imgId, QString segments)
+void HangishClient::sendImageMessage(const QString &convId, const QString &imgId, const QString &segments)
 {
     QString seg = "[[0, \"";
     seg += segments;
@@ -312,7 +312,7 @@ void HangishClient::sendMessageReply()
     delete reply;
 }
 
-void HangishClient::sendImage(QString segments, QString conversationId, QString filename)
+void HangishClient::sendImage(const QString &segments, const QString &conversationId, const QString &filename)
 {
     Q_UNUSED(segments)
     QFile inFile(filename);
@@ -521,7 +521,7 @@ void HangishClient::setPresenceReply()
     }
 }
 
-void HangishClient::setFocus(QString convId, int status)
+void HangishClient::setFocus(const QString &convId, int status)
 {
     QString body = "[";
     body += getRequestHeader();
@@ -545,7 +545,7 @@ void HangishClient::setFocusReply()
     }
 }
 
-void HangishClient::setTyping(QString convId, int status)
+void HangishClient::setTyping(const QString &convId, int status)
 {
     ClientSetTypingRequest request;
     //ClientConversationId conversationId = new ClientConversationId();
@@ -712,7 +712,7 @@ void HangishClient::updateWatermarkReply()
 }
 
 
-void HangishClient::initChat(QString pvt)
+void HangishClient::initChat(const QString &pvt)
 {
     QUrlQuery query;
 
@@ -730,7 +730,7 @@ void HangishClient::initChat(QString pvt)
     QObject::connect(reply, SIGNAL(finished()), this, SLOT(onInitChatReply()));
 }
 
-void HangishClient::followRedirection(QUrl url)
+void HangishClient::followRedirection(const QUrl &url)
 {
     QNetworkRequest req( url );
     req.setRawHeader("User-Agent", USER_AGENT);
@@ -953,12 +953,12 @@ void HangishClient::onClientBatchUpdate(ClientBatchUpdate &cbu)
     }
 }
 
-void HangishClient::sendCredentials(QString uname, QString passwd)
+void HangishClient::sendCredentials(const QString &uname, const QString &passwd)
 {
     mAuthenticator->sendCredentials(uname, passwd);
 }
 
-void HangishClient::send2ndFactorPin(QString pin)
+void HangishClient::send2ndFactorPin(const QString &pin)
 {
     mAuthenticator->send2ndFactorPin(pin);
 }
