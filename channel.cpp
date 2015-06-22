@@ -31,7 +31,7 @@
 
 #include "channel.h"
 
-Channel::Channel(QMap<QString, QNetworkCookie> cookies, QString ppath, QString pclid, QString pec, QString pprop, ClientEntity pms) :
+Channel::Channel(const QMap<QString, QNetworkCookie> &cookies, const QString &ppath, const QString &pclid, const QString &pec, const QString &pprop, ClientEntity pms) :
     mLongPoolRequest(NULL),
     mChannelError(false),
     mMyself(pms),
@@ -347,7 +347,7 @@ void Channel::listen()
     }
 }
 
-quint64 Channel::getLastPushTs()
+quint64 Channel::getLastPushTs() const
 {
     return mLastPushReceived;
 }

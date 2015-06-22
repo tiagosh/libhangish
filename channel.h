@@ -35,9 +35,9 @@ class Channel : public QObject
     Q_OBJECT
 
 public:
-    Channel(QMap<QString, QNetworkCookie> cookies, QString ppath, QString pclid, QString pec, QString pprop, ClientEntity pms);
+    Channel(const QMap<QString, QNetworkCookie> &cookies, const QString &ppath, const QString &pclid, const QString &pec, const QString &pprop, ClientEntity pms);
     void listen();
-    quint64 getLastPushTs();
+    quint64 getLastPushTs() const;
 
 private Q_SLOTS:
     void longPollRequest();

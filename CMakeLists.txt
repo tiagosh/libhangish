@@ -75,7 +75,7 @@ install(
 )
 
 install(
-    FILES ${hangish_HEADERS}
+    FILES ${hangish_HEADERS} ${PROTO_HEADERS}
     DESTINATION ${HANGISH_INCLUDE_DIR}
     COMPONENT Devel
 )
