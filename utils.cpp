@@ -161,7 +161,7 @@ bool Utils::packToMessage(const QVariantList& fields,
     for (int i = 0; i < field_count && i < fields.size(); ++i) {
         QVariant field = fields[i];
         const FieldDescriptor *desc = descriptor->field(i);
-        if (!desc->containing_oneof() && field.isValid()) {
+        if (field.isValid()) {
             if (desc->is_repeated()) {
                 if (!field.canConvert(QMetaType::QVariantList)) {
                     qWarning() << "Invalid type for repeated field: "
