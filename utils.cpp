@@ -118,20 +118,20 @@ void Utils::setReflectionRepeatedValue(const Reflection& ref,
                                        const QVariantList& list,
                                        int size)
 {
-#define PROTOBUF_QML_ADD_REPEATED(TYPE_ENUM, TYPE, CPP_TYPE)           \
+#define PROTOBUF_ADD_REPEATED(TYPE_ENUM, TYPE, CPP_TYPE)           \
     case FieldDescriptor::CPPTYPE_##TYPE_ENUM:                           \
     for (int i = 0; i < size; i++)                                     \
     ref.Add##TYPE(&msg, field, CPP_TYPE(list[i].value<CPP_TYPE>())); \
     break;
 
     switch (field->cpp_type()) {
-        PROTOBUF_QML_ADD_REPEATED(INT32, Int32, int32);
-        PROTOBUF_QML_ADD_REPEATED(INT64, Int64, int64);
-        PROTOBUF_QML_ADD_REPEATED(UINT32, UInt32, uint32);
-        PROTOBUF_QML_ADD_REPEATED(UINT64, UInt64, uint64);
-        PROTOBUF_QML_ADD_REPEATED(DOUBLE, Double, double);
-        PROTOBUF_QML_ADD_REPEATED(FLOAT, Float, float);
-        PROTOBUF_QML_ADD_REPEATED(BOOL, Bool, bool);
+        PROTOBUF_ADD_REPEATED(INT32, Int32, int32);
+        PROTOBUF_ADD_REPEATED(INT64, Int64, int64);
+        PROTOBUF_ADD_REPEATED(UINT32, UInt32, uint32);
+        PROTOBUF_ADD_REPEATED(UINT64, UInt64, uint64);
+        PROTOBUF_ADD_REPEATED(DOUBLE, Double, double);
+        PROTOBUF_ADD_REPEATED(FLOAT, Float, float);
+        PROTOBUF_ADD_REPEATED(BOOL, Bool, bool);
     case FieldDescriptor::CPPTYPE_STRING:
         for (int i = 0; i < size; i++) {
             ref.AddString(&msg, field, list[i].value<QString>().toStdString());
@@ -149,7 +149,7 @@ void Utils::setReflectionRepeatedValue(const Reflection& ref,
         }
         break;
     }
-#undef PROTOBUF_QML_SET_REPEATED
+#undef PROTOBUF_ADD_REPEATED
 }
 
 bool Utils::packToMessage(const QVariantList& fields,
