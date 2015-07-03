@@ -109,6 +109,8 @@ void Channel::parseChannelData(const QString &sreply)
 
 void Channel::longPollRequest()
 {
+    qDebug() << __func__;
+
     if (mLongPoolRequest != NULL) {
         mLongPoolRequest->close();
         mLongPoolRequest->deleteLater();
@@ -133,9 +135,8 @@ void Channel::longPollRequest()
     QNetworkRequest req(url);
     req.setRawHeader("User-Agent", QByteArray(USER_AGENT));
     req.setRawHeader("Connection", "Keep-Alive");
-
     req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(mSessionCookies.values()));
-    qDebug() << "Making long pool req";
+
     mLongPoolRequest = mNetworkAccessManager.get(req);
     QObject::connect(mLongPoolRequest, SIGNAL(readyRead()), this, SLOT(networReadyRead()));
     QObject::connect(mLongPoolRequest, SIGNAL(finished()), this, SLOT(networkRequestFinished()));
@@ -144,13 +145,12 @@ void Channel::longPollRequest()
 
 void Channel::slotError(QNetworkReply::NetworkError err)
 {
+    qDebug() << __func__ << err;
     mChannelError = true;
     if (err == QNetworkReply::NetworkSessionFailedError) {
         mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
         Q_EMIT cookieUpdateNeeded(QNetworkCookie());
     }
-    qDebug() << err;
-    qDebug() << "Error, retrying to activate channel";
     mCheckChannelTimer->start();
 }
 
@@ -222,18 +222,20 @@ void Channel::networReadyRead()
 
 void Channel::networkRequestFinished()
 {
+    qDebug() << __func__ << mChannelError;
+
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
 
     processCookies(reply);
 
-    qDebug() << "FINISHED called! " << mChannelError;
     QString srep = reply->readAll();
-    qDebug() << srep;
+
     if (srep.contains("Unknown SID")) {
         //Need new SID
         fetchNewSid();
         return;
     }
+
     //If there's a network problem don't do anything, the connection will be retried by checkChannelStatus
     if (!mChannelError) {
         longPollRequest();
@@ -244,7 +246,8 @@ void Channel::networkRequestFinished()
 
 void Channel::fetchNewSid()
 {
-    qDebug() << "fetch new sid";
+    qDebug() << __func__;
+
     QNetworkRequest req(QString("https://talkgadget.google.com" + mPath + "bind"));
 
     QUrlQuery query;
@@ -262,6 +265,8 @@ void Channel::fetchNewSid()
 
 void Channel::onFetchNewSidReply()
 {
+    qDebug() << __func__;
+
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
 
     processCookies(reply);

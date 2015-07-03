@@ -65,6 +65,8 @@ void Authenticator::authenticate()
 
 void Authenticator::networkCallback(QNetworkReply *reply)
 {
+    qDebug() << __func__ << mAuthPhase << mSessionCookies;
+
     QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
     Q_FOREACH (QNetworkCookie cookie, c) {
@@ -73,7 +75,6 @@ void Authenticator::networkCallback(QNetworkReply *reply)
         }
     }
 
-    qDebug() << "Authenticator::networkCallback" << mAuthPhase << mSessionCookies;
     if (reply->error() == QNetworkReply::NoError) {
         switch (mAuthPhase) {
         case AUTH_PHASE_GALX_REQUESTED: {
@@ -115,8 +116,6 @@ void Authenticator::networkCallback(QNetworkReply *reply)
                     start = ssreply.indexOf("'", start)+1;
                     stop = ssreply.indexOf("'", start);
                     mTimeStmp = ssreply.mid(start, stop-start);
-                    qDebug() << mSecTok;
-                    qDebug() << mTimeStmp;
                     Q_EMIT authFailed(AUTH_NEED_2FACTOR_PIN);
                 } else {
                     //Something went wrong
@@ -177,7 +176,8 @@ void Authenticator::followRedirection(QUrl url)
 
 void Authenticator::getGalxToken()
 {
-    qDebug() << "Authenticator::getGalxToken";
+    qDebug() << __func__;
+
     mSessionCookies.clear();
     mAuthPhase = AUTH_PHASE_GALX_REQUESTED;
 
@@ -198,6 +198,8 @@ void Authenticator::getGalxToken()
 
 void Authenticator::saveAuthCookies()
 {
+    qDebug() << __func__ << mCookiePath;
+
     QJsonObject obj;
     QMap<QString, QNetworkCookie> liveSessionCookies;
     Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
@@ -216,13 +218,12 @@ void Authenticator::saveAuthCookies()
 
     cookieFile.close();
 
-    qDebug() << "Written cookies to " << mCookiePath;
     mSessionCookies = liveSessionCookies;
 }
 
 void Authenticator::sendCredentials(const QString &uname, const QString &passwd)
 {
-    qDebug() << "sendCredentials";
+    qDebug() << __func__;
     mAuthPhase = AUTH_PHASE_CREDENTIALS_SENT;
 
     QUrlQuery query;
@@ -247,6 +248,8 @@ void Authenticator::sendCredentials(const QString &uname, const QString &passwd)
 
 void Authenticator::send2ndFactorPin(const QString &pin)
 {
+    qDebug() << __func__;
+
     mAuthPhase = AUTH_PHASE_2FACTOR_PIN_SENT;
 
     QUrlQuery query;
@@ -272,7 +275,6 @@ bool Authenticator::amILoggedIn() const
 {
     int i = 0;
     Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
-        qDebug() << cookie.name();
         if (cookie.name()=="APISID" ||
             cookie.name()=="HSID" ||
             cookie.name()=="SAPISID" ||
@@ -286,6 +288,8 @@ bool Authenticator::amILoggedIn() const
 
 void Authenticator::updateCookieFile(const QList<QNetworkCookie> &cookies)
 {
+    qDebug() << __func__ << mCookiePath;
+
     QJsonObject obj;
     mSessionCookies.clear();
     QFile cookieFile(mCookiePath);
@@ -303,7 +307,5 @@ void Authenticator::updateCookieFile(const QList<QNetworkCookie> &cookies)
             cookieFile.write(doc.toJson(), doc.toJson().size());
         }
         cookieFile.close();
-
-        qDebug() << "Written cookies to " << mCookiePath;
     }
 }
