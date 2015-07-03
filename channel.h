@@ -57,6 +57,7 @@ Q_SIGNALS:
 private:
     void fetchNewSid();
     void parseChannelData(const QString &sreply);
+    void processCookies(QNetworkReply *reply);
 
     QNetworkReply *mLongPoolRequest;
     bool mChannelError;

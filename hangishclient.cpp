@@ -943,6 +943,7 @@ void HangishClient::cookieUpdateSlot(QNetworkCookie cookie)
     if (mSessionCookies.contains(cookie.name())) {
         mSessionCookies[cookie.name()] = cookie;
     }
+    mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
 }
 
 void HangishClient::onClientBatchUpdate(ClientBatchUpdate &cbu)

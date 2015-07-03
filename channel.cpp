@@ -47,6 +47,25 @@ Channel::Channel(const QMap<QString, QNetworkCookie> &cookies, const QString &pp
     QObject::connect(mCheckChannelTimer, SIGNAL(timeout()), this, SLOT(onChannelLost()));
 }
 
+void Channel::processCookies(QNetworkReply *reply)
+{
+    bool cookieUpdated = false;
+    QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
+    QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
+
+    Q_FOREACH (QNetworkCookie cookie, c) {
+        if (mSessionCookies.contains(cookie.name())) {
+            mSessionCookies[cookie.name()] = cookie;
+            Q_EMIT cookieUpdateNeeded(cookie);
+            cookieUpdated = true;
+        }
+    }
+
+    if (cookieUpdated) {
+        mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
+    }
+}
+
 void Channel::onChannelLost()
 {
     qDebug() << "Dead, here I should sync al evts from last ts";
@@ -126,6 +145,10 @@ void Channel::longPollRequest()
 void Channel::slotError(QNetworkReply::NetworkError err)
 {
     mChannelError = true;
+    if (err == QNetworkReply::NetworkSessionFailedError) {
+        mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
+        Q_EMIT cookieUpdateNeeded(QNetworkCookie());
+    }
     qDebug() << err;
     qDebug() << "Error, retrying to activate channel";
     mCheckChannelTimer->start();
@@ -134,30 +157,14 @@ void Channel::slotError(QNetworkReply::NetworkError err)
 void Channel::networReadyRead()
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
-    QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
-    QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
-    //Eventually update cookies, may set S
-    bool cookieUpdated = false;
-    Q_FOREACH (QNetworkCookie cookie, c) {
-        if (mSessionCookies.contains(cookie.name())) {
-            mSessionCookies[cookie.name()] = cookie;
-            Q_EMIT cookieUpdateNeeded(cookie);
-            qDebug() << "Updated cookie " << cookie.name();
-            cookieUpdated = true;
-        }
-    }
-    if (cookieUpdated) {
-        mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
-    }
+
+    processCookies(reply);
 
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==401) {
         qDebug() << "Auth expired!";
     } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==400) {
-        //Need new SID?
-        //qDebug() << sreply;
         qDebug() << "New seed needed?";
         fetchNewSid();
-        qDebug() << "fetched";
         return;
     }
 
@@ -216,22 +223,8 @@ void Channel::networReadyRead()
 void Channel::networkRequestFinished()
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
-    QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
-    QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
-    //Eventually update cookies, may set S
-    bool cookieUpdated = false;
-    Q_FOREACH (QNetworkCookie cookie, c) {
-        if (mSessionCookies.contains(cookie.name())) {
-            mSessionCookies[cookie.name()] = cookie;
-            Q_EMIT cookieUpdateNeeded(cookie);
-            qDebug() << "Updated cookie " << cookie.name();
-            cookieUpdated = true;
-        }
-    }
 
-    if (cookieUpdated) {
-        mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
-    }
+    processCookies(reply);
 
     qDebug() << "FINISHED called! " << mChannelError;
     QString srep = reply->readAll();
@@ -270,22 +263,8 @@ void Channel::fetchNewSid()
 void Channel::onFetchNewSidReply()
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
-    QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
-    QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
-    //Eventually update cookies, may set S
-    bool cookieUpdated = false;
-    Q_FOREACH (QNetworkCookie cookie, c) {
-        if (mSessionCookies.contains(cookie.name())) {
-            mSessionCookies[cookie.name()] = cookie;
-            Q_EMIT cookieUpdateNeeded(cookie);
-            qDebug() << "Updated cookie " << cookie.name();
-            cookieUpdated = true;
-        }
-    }
 
-    if (cookieUpdated) {
-        mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
-    }
+    processCookies(reply);
 
     if (reply->error() == QNetworkReply::NoError) {
         // drop first line (character count)
