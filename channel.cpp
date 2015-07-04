@@ -42,7 +42,8 @@ Channel::Channel(const QMap<QString, QNetworkCookie> &cookies, const QString &pp
     mProp(pprop),
     mLastPushReceived(0),
     mPendingParcelSize(0),
-    mCheckChannelTimer(new QTimer(this))
+    mCheckChannelTimer(new QTimer(this)),
+    mFetchingSid(false)
 {
     QObject::connect(mCheckChannelTimer, SIGNAL(timeout()), this, SLOT(onChannelLost()));
 }
@@ -246,7 +247,13 @@ void Channel::networkRequestFinished()
 
 void Channel::fetchNewSid()
 {
-    qDebug() << __func__;
+    qDebug() << __func__ << mFetchingSid;
+
+    if (mFetchingSid) {
+        return;
+    }
+
+    mFetchingSid = true;
 
     QNetworkRequest req(QString("https://talkgadget.google.com" + mPath + "bind"));
 
@@ -266,6 +273,8 @@ void Channel::fetchNewSid()
 void Channel::onFetchNewSidReply()
 {
     qDebug() << __func__;
+
+    mFetchingSid = false;
 
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
 

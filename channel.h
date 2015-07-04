@@ -69,6 +69,7 @@ private:
     int mPendingParcelSize;
     QByteArray mPendingParcelBuffer;
     QTimer *mCheckChannelTimer;
+    bool mFetchingSid;
 };
 
 #endif // CHANNEL_H
