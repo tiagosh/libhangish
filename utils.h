@@ -42,7 +42,7 @@ public:
     static QVariantList jsArrayToVariantList(const QString &jsArray);
     static bool packToMessage(const QVariantList& fields, Message& msg);
     static QString msgToJsArray(Message &msg);
-    static void hangishMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg);
+    static void hangishProtocolDebug(const Message &message);
 
 private:
     static void setMessage(const Reflection& ref,

@@ -65,7 +65,7 @@ void Authenticator::authenticate()
 
 void Authenticator::networkCallback(QNetworkReply *reply)
 {
-    qDebug() << __func__ << mAuthPhase << mSessionCookies;
+    qDebug() << __func__ << mAuthPhase;
 
     QVariant v = reply->header(QNetworkRequest::SetCookieHeader);
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
@@ -205,7 +205,6 @@ void Authenticator::saveAuthCookies()
     Q_FOREACH (QNetworkCookie cookie, mSessionCookies) {
         //Let's save the relevant cookies
         if (cookie.name()=="S" || (!cookie.isSessionCookie() && cookie.domain().contains("google.com"))) {
-            qDebug() << "GOOD: " << cookie.name() << " - " << cookie.domain() << " - " << cookie.isSessionCookie() << " - " << cookie.expirationDate().toString();
             obj[cookie.name()] = QJsonValue( QString(cookie.value()) );
             liveSessionCookies[cookie.name()] = cookie;
         }
@@ -297,7 +296,6 @@ void Authenticator::updateCookieFile(const QList<QNetworkCookie> &cookies)
         cookieFile.open(QIODevice::ReadWrite | QIODevice::Text);
         cookieFile.resize(0);
         Q_FOREACH (QNetworkCookie cookie, cookies) {
-            qDebug() << "GOOD: " << cookie.name() << " : "  << cookie.value()<<  " - " << cookie.domain() << " - " << cookie.isSessionCookie() << " - " << cookie.expirationDate().toString();
             obj[cookie.name()] = QJsonValue( QString(cookie.value()) );
             mSessionCookies[cookie.name()] = cookie;
         }

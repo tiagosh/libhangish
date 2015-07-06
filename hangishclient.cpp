@@ -35,7 +35,6 @@ HangishClient::HangishClient(const QString &pCookiePath) :
     mAuthenticator(new Authenticator(mCookiePath)),
     mChannel(NULL)
 {
-    qInstallMessageHandler(Utils::hangishMessageOutput);
     QObject::connect(mAuthenticator, SIGNAL(gotCookies(QMap<QString,QNetworkCookie>)), this, SLOT(onAuthenticationDone(QMap<QString,QNetworkCookie>)));
     QObject::connect(mAuthenticator, SIGNAL(loginNeeded()), this, SIGNAL(loginNeeded()));
     QObject::connect(mAuthenticator, SIGNAL(authFailed(AuthenticationStatus,QString)), this, SIGNAL(authFailed(AuthenticationStatus,QString)));
@@ -283,7 +282,6 @@ quint64 HangishClient::sendChatMessage(ClientSendChatMessageRequest clientSendCh
     clientSendChatMessageRequest.set_allocated_requestheader(getRequestHeader1());
 
     QNetworkReply *reply = sendRequest("conversations/sendchatmessage", Utils::msgToJsArray(clientSendChatMessageRequest));
-    qDebug () << clientSendChatMessageRequest.DebugString().c_str();
     QObject::connect(reply, SIGNAL(finished()), this, SLOT(sendMessageReply()));
     mPendingRequests[reply] = requestId;
     return requestId;
@@ -301,7 +299,6 @@ void HangishClient::sendMessageReply()
     Q_FOREACH (QNetworkCookie cookie, c) {
         qDebug() << cookie.name();
     }
-    qDebug() << "Response " << reply->readAll();
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==200) {
         qDebug() << "Message sent correctly: " << requestId;
         Q_EMIT messageSent(requestId);
@@ -483,7 +480,6 @@ void HangishClient::queryPresenceReply()
         variantListResponse.pop_front();
         Utils::packToMessage(QVariantList() << variantListResponse, cqprp);
         Q_EMIT clientQueryPresenceResponse(mPendingRequests.take(reply), cqprp);
-        qDebug() << "ClientQueryPresenceResponse: " << cqprp.DebugString().c_str();
     }
 }
 
@@ -517,7 +513,6 @@ void HangishClient::setPresenceReply()
         variantListResponse.pop_front();
         Utils::packToMessage(QVariantList() << variantListResponse, csprp);
         Q_EMIT clientSetPresenceResponse(mPendingRequests.take(reply), csprp);
-        qDebug() << "ClientSetPresenceResponse: " << csprp.DebugString().c_str();
     }
 }
 
@@ -601,7 +596,6 @@ void HangishClient::getConversationReply()
             variantListResponse.pop_front();
             Utils::packToMessage(QVariantList() << variantListResponse, cgcr);
             Q_EMIT clientGetConversationResponse(mPendingRequests.take(reply), cgcr);
-            qDebug() << "ClientGetConversationResponse: " << cgcr.DebugString().c_str();
         }
     }
     reply->deleteLater();
@@ -641,7 +635,6 @@ void HangishClient::syncAllNewEventsReply()
             variantListResponse.pop_front();
             Utils::packToMessage(QVariantList() << variantListResponse, csanerp);
             Q_EMIT clientSyncAllNewEventsResponse(csanerp);
-            qDebug() << "ClientSyncAllNewEventsResponse: " << csanerp.DebugString().c_str();
         }
         mNeedSync = false;
     }
@@ -774,7 +767,6 @@ void HangishClient::onInitChatReply()
                     mApiKey = chatApiConfiguration.key().c_str();
                 }
             }
-            qDebug() << "API KEY: " << mApiKey;
             if (mApiKey.isEmpty()) {
                 qDebug() << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
                 qDebug() << "Auth expired!";
@@ -836,9 +828,7 @@ void HangishClient::onInitChatReply()
             rx.setPattern("(\\[\\[\"cgserp\".*\\}\\}\\)\\;)");
             if (rx.indexIn(sreply) != -1) {
                 QString cgserp = rx.cap(1).split("}});")[0];
-                qDebug() << cgserp;
                 QVariantList list = Utils::jsArrayToVariantList(cgserp)[0].toList();
-                qDebug() << list.size();
                 if (list[0] =="cgserp") {
                     list.removeAt(0);
                     ClientGetSuggestedEntitiesResponse clientGetSuggestedEntitiesResponse;
@@ -851,7 +841,6 @@ void HangishClient::onInitChatReply()
                             mUsers[QString(entity.id().chatid().c_str())] = entity;
                         }
                     }
-                    qDebug() << clientGetSuggestedEntitiesResponse.DebugString().c_str();
                 }
             }
 
@@ -868,7 +857,6 @@ void HangishClient::onInitChatReply()
                         ClientConversationState conv = clientSyncRecentConversationsResponse.conversationstate(i);
                         mConversations[QString(conv.conversationid().id().c_str())] = conv;
                     }
-                    //qDebug() << clientSyncRecentConversationsResponse.DebugString().c_str();
                 }
 
             }
@@ -920,7 +908,6 @@ void HangishClient::onGetPVTTokenReply()
         PVTToken pvttoken;
         QVariantList variantListResponse = Utils::jsArrayToVariantList(reply->readAll());
         Utils::packToMessage(QVariantList() << variantListResponse, pvttoken);
-        qDebug() << "PVTToken: " << pvttoken.DebugString().c_str() << variantListResponse;
 
         reply->close();
 
@@ -978,7 +965,7 @@ void HangishClient::onChannelRestored(quint64 lastRec)
         mNeedSync = true;
         mNeedSyncTS = lastRec;
     }
-    qDebug() << "Chnl restored, gonna sync with " << lastRec;
+    qDebug() << "Channel restored, gonna sync with " << lastRec;
     syncAllNewEvents(mNeedSyncTS);
     Q_EMIT channelRestored();
 }

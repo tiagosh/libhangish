@@ -69,8 +69,7 @@ void Channel::processCookies(QNetworkReply *reply)
 
 void Channel::onChannelLost()
 {
-    qDebug() << "Dead, here I should sync al evts from last ts";
-    qDebug() << "start new lpconn";
+    qDebug() << __func__;
     mCheckChannelTimer->stop();
     mChannelError = true;
     Q_EMIT channelLost();
@@ -105,7 +104,7 @@ void Channel::parseChannelData(const QString &sreply)
     if (cbu.stateupdate(cbu.stateupdate_size()-1).has_stateupdateheader()) {
         mLastPushReceived = cbu.stateupdate(cbu.stateupdate_size()-1).stateupdateheader().currentservertime();
     }
-    qDebug() << "Message: " << cbu.DebugString().c_str();
+    Utils::hangishProtocolDebug(cbu);
 }
 
 void Channel::longPollRequest()
@@ -284,7 +283,7 @@ void Channel::onFetchNewSidReply()
         // drop first line (character count)
         reply->readLine();
         QString rep = reply->readAll();
-        qDebug() << "new SID reply " << rep;
+        qDebug() << "new SID reply";
         QVariantList sidResponse = Utils::jsArrayToVariantList(rep);
         // first contains the new sid only
         QVariantList sidOp = sidResponse.takeFirst().toList();
@@ -310,9 +309,7 @@ void Channel::onFetchNewSidReply()
 
         }
     } else {
-        QString rep = reply->readAll();
-        qDebug() << rep;
-        qDebug() << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        qDebug() << "Error fetching new sid" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     }
     //Now the reply should be std
     if (!mChannelError) {
