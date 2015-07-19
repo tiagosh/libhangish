@@ -31,11 +31,10 @@
 
 #include "channel.h"
 
-Channel::Channel(const QMap<QString, QNetworkCookie> &cookies, const QString &ppath, const QString &pclid, const QString &pec, const QString &pprop, ClientEntity pms) :
+Channel::Channel(QMap<QString, QNetworkCookie> &cookies, const QString &ppath, const QString &pclid, const QString &pec, const QString &pprop, ClientEntity pms) :
     mLongPoolRequest(NULL),
-    mChannelError(false),
     mMyself(pms),
-    mSessionCookies(cookies),
+    mSessionCookies(&cookies),
     mClid(pclid),
     mEc(pec),
     mPath(ppath),
@@ -43,7 +42,8 @@ Channel::Channel(const QMap<QString, QNetworkCookie> &cookies, const QString &pp
     mLastPushReceived(0),
     mPendingParcelSize(0),
     mCheckChannelTimer(new QTimer(this)),
-    mFetchingSid(false)
+    mFetchingSid(false),
+    mStatus(ChannelStatusInactive)
 {
     QObject::connect(mCheckChannelTimer, SIGNAL(timeout()), this, SLOT(onChannelLost()));
 }
@@ -55,8 +55,8 @@ void Channel::processCookies(QNetworkReply *reply)
     QList<QNetworkCookie> c = qvariant_cast<QList<QNetworkCookie> >(v);
 
     Q_FOREACH (QNetworkCookie cookie, c) {
-        if (mSessionCookies.contains(cookie.name())) {
-            mSessionCookies[cookie.name()] = cookie;
+        if (mSessionCookies->contains(cookie.name())) {
+            mSessionCookies->insert(cookie.name(), cookie);
             Q_EMIT cookieUpdateNeeded(cookie);
             cookieUpdated = true;
         }
@@ -70,9 +70,10 @@ void Channel::processCookies(QNetworkReply *reply)
 void Channel::onChannelLost()
 {
     qDebug() << __func__;
-    mCheckChannelTimer->stop();
-    mChannelError = true;
-    Q_EMIT channelLost();
+    if (status() == ChannelStatusPermanentError) {
+        return;
+    }
+    setStatus(ChannelStatusConnecting);
     QTimer::singleShot(500, this, SLOT(longPollRequest()));
 }
 
@@ -109,7 +110,7 @@ void Channel::parseChannelData(const QString &sreply)
 
 void Channel::longPollRequest()
 {
-    qDebug() << __func__;
+    qDebug() << __func__ << status();
 
     if (mLongPoolRequest != NULL) {
         mLongPoolRequest->close();
@@ -135,7 +136,7 @@ void Channel::longPollRequest()
     QNetworkRequest req(url);
     req.setRawHeader("User-Agent", QByteArray(USER_AGENT));
     req.setRawHeader("Connection", "Keep-Alive");
-    req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(mSessionCookies.values()));
+    req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(mSessionCookies->values()));
 
     mLongPoolRequest = mNetworkAccessManager.get(req);
     QObject::connect(mLongPoolRequest, SIGNAL(readyRead()), this, SLOT(networReadyRead()));
@@ -146,12 +147,9 @@ void Channel::longPollRequest()
 void Channel::slotError(QNetworkReply::NetworkError err)
 {
     qDebug() << __func__ << err;
-    mChannelError = true;
-    if (err == QNetworkReply::NetworkSessionFailedError) {
-        mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
-        Q_EMIT cookieUpdateNeeded(QNetworkCookie());
-    }
-    mCheckChannelTimer->start();
+    // TODO: check what codes are unrecoverable and set the channel
+    // status accordingly. So far we got errors 302 and 5.
+    setStatus(ChannelStatusPermanentError);
 }
 
 void Channel::networReadyRead()
@@ -162,10 +160,18 @@ void Channel::networReadyRead()
 
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==401) {
         qDebug() << "Auth expired!";
+        setStatus(ChannelStatusPermanentError);
+        return;
     } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()==400) {
         qDebug() << "New seed needed?";
         fetchNewSid();
         return;
+    }
+
+    bool channelInactive = mStatus != ChannelStatusActive;
+
+    if (channelInactive) {
+        setStatus(ChannelStatusActive);
     }
 
     mPendingParcelBuffer += reply->readAll();
@@ -213,16 +219,18 @@ void Channel::networReadyRead()
     // zero timer on every new message received
     mCheckChannelTimer->start(30000);
 
-    //if I'm here it means the channel is working fine
-    if (mChannelError) {
+    if (channelInactive) {
         Q_EMIT channelRestored(mLastPushReceived);
-        mChannelError = false;
     }
 }
 
 void Channel::networkRequestFinished()
 {
-    qDebug() << __func__ << mChannelError;
+    qDebug() << __func__ << status();
+
+    if (status() == ChannelStatusPermanentError) {
+        return;
+    }
 
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
 
@@ -232,16 +240,12 @@ void Channel::networkRequestFinished()
 
     if (srep.contains("Unknown SID")) {
         //Need new SID
+        setStatus(ChannelStatusConnecting);
         fetchNewSid();
         return;
     }
 
-    //If there's a network problem don't do anything, the connection will be retried by checkChannelStatus
-    if (!mChannelError) {
-        longPollRequest();
-    } else {
-        mCheckChannelTimer->start(30000);
-    }
+    QTimer::singleShot(500, this, SLOT(longPollRequest()));
 }
 
 void Channel::fetchNewSid()
@@ -252,6 +256,7 @@ void Channel::fetchNewSid()
         return;
     }
 
+    mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
     mFetchingSid = true;
 
     QNetworkRequest req(QString("https://talkgadget.google.com" + mPath + "bind"));
@@ -263,7 +268,7 @@ void Channel::fetchNewSid()
     query.addQueryItem("prop", mProp);
     query.addQueryItem("ec", mEc);
 
-    req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(mSessionCookies.values()));
+    req.setHeader(QNetworkRequest::CookieHeader, QVariant::fromValue(mSessionCookies->values()));
     req.setHeader(QNetworkRequest::ContentTypeHeader, QVariant::fromValue(QString("application/x-www-form-urlencoded")));
     QNetworkReply *rep = mNetworkAccessManager.post(req, query.toString().toLatin1());
     QObject::connect(rep, SIGNAL(finished()), this, SLOT(onFetchNewSidReply()));
@@ -272,6 +277,10 @@ void Channel::fetchNewSid()
 void Channel::onFetchNewSidReply()
 {
     qDebug() << __func__;
+
+    if (status() == ChannelStatusPermanentError) {
+        return;
+    }
 
     mFetchingSid = false;
 
@@ -306,24 +315,25 @@ void Channel::onFetchNewSidReply()
                     mGSessionId = prop2[1].toList()[1].toString();
                 }
             }
-
         }
     } else {
         qDebug() << "Error fetching new sid" << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        setStatus(ChannelStatusPermanentError);
+        return;
     }
-    //Now the reply should be std
-    if (!mChannelError) {
+
+    // if the channel is currently inactive, perform a long poll request
+    if (status() != ChannelStatusActive) {
+        setStatus(ChannelStatusConnecting);
         longPollRequest();
     } else {
+        // channel is still alive, just renew the timer
         mCheckChannelTimer->start(30000);
     }
 }
 
 void Channel::listen()
 {
-    // start checking if the channel is alive
-    mCheckChannelTimer->start(30000);
-
     static int MAX_RETRIES = 1;
     int retries = MAX_RETRIES;
     bool need_new_sid = true;
@@ -337,7 +347,22 @@ void Channel::listen()
     }
 }
 
-quint64 Channel::getLastPushTs() const
+Channel::ChannelStatus Channel::status()
 {
-    return mLastPushReceived;
+    return mStatus;
+}
+
+void Channel::setStatus(ChannelStatus status)
+{
+    if (status == ChannelStatusActive) {
+        // only start timer if the channel is active
+        mCheckChannelTimer->start();
+    } else {
+        mCheckChannelTimer->stop();
+    }
+
+    if (mStatus != status) {
+        mStatus = status;
+        Q_EMIT statusChanged(mStatus);
+    }
 }

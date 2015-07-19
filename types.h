@@ -59,6 +59,12 @@ enum AuthenticationPhase {
     AUTH_PHASE_2FACTOR_PIN_SENT,
 };
 
+enum ConnectionStatus {
+    CONNECTION_STATUS_DISCONNECTED = 0,
+    CONNECTION_STATUS_CONNECTING,
+    CONNECTION_STATUS_CONNECTED
+};
+
 struct OutgoingImage {
     QString filename;
     QString conversationId;

@@ -26,6 +26,7 @@
 #include <QUrlQuery>
 
 #include "hangishclient.h"
+#include "channel.h"
 
 HangishClient::HangishClient(const QString &pCookiePath) :
     mCurrentRequestId(0),
@@ -48,7 +49,7 @@ void HangishClient::initDone()
         hangishDisconnect();
     }
     mChannel = new Channel(mSessionCookies, mChannelPath, mHeaderId, mChannelEcParam, mChannelPropParam, mMyself);
-    QObject::connect(mChannel, SIGNAL(channelLost()), this, SIGNAL(channelLost()));
+    QObject::connect(mChannel, SIGNAL(statusChanged(Channel::ChannelStatus)), this, SLOT(onChannelStatusChanged(Channel::ChannelStatus)));
     QObject::connect(mChannel, SIGNAL(channelRestored(quint64)), this, SLOT(onChannelRestored(quint64)));
     QObject::connect(mChannel, SIGNAL(updateClientId(QString)), this, SLOT(updateClientId(QString)));
     QObject::connect(mChannel, SIGNAL(cookieUpdateNeeded(QNetworkCookie)), this, SLOT(cookieUpdateSlot(QNetworkCookie)));
@@ -56,6 +57,19 @@ void HangishClient::initDone()
 
     syncAllNewEvents(mLastKnownPushTs);
     mChannel->listen();
+}
+
+void HangishClient::onChannelStatusChanged(Channel::ChannelStatus status)
+{
+    switch(status) {
+    case Channel::ChannelStatusConnecting:
+        Q_EMIT connectionStatusChanged(CONNECTION_STATUS_CONNECTING);
+        break;
+    case Channel::ChannelStatusPermanentError:
+    case Channel::ChannelStatusInactive:
+        Q_EMIT connectionStatusChanged(CONNECTION_STATUS_DISCONNECTED);
+        break;
+    }
 }
 
 void HangishClient::hangishDisconnect()
@@ -68,6 +82,8 @@ void HangishClient::hangishDisconnect()
 
 void HangishClient::hangishConnect(quint64 lastKnownPushTs)
 {
+    mNetworkAccessManager.setCookieJar(new QNetworkCookieJar(this));
+    mSessionCookies.clear();
     mLastKnownPushTs = lastKnownPushTs;
     mAuthenticator->authenticate();
 }
@@ -469,7 +485,6 @@ void HangishClient::queryPresenceReply()
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     QString sreply = reply->readAll();
-    qDebug() << "query presence response " << sreply;
     ClientQueryPresenceResponse cqprp;
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()!=200) {
         qDebug() << "There was an error getting presence! " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -703,7 +718,6 @@ void HangishClient::updateWatermarkReply()
         qDebug() << "There was an error updating the wm! " << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     }
 }
-
 
 void HangishClient::initChat(const QString &pvt)
 {

@@ -35,9 +35,16 @@ class Channel : public QObject
     Q_OBJECT
 
 public:
-    Channel(const QMap<QString, QNetworkCookie> &cookies, const QString &ppath, const QString &pclid, const QString &pec, const QString &pprop, ClientEntity pms);
+    enum ChannelStatus {
+        ChannelStatusInactive,
+        ChannelStatusConnecting,
+        ChannelStatusActive,
+        ChannelStatusPermanentError
+    };
+
+    Channel(QMap<QString, QNetworkCookie> &cookies, const QString &ppath, const QString &pclid, const QString &pec, const QString &pprop, ClientEntity pms);
     void listen();
-    quint64 getLastPushTs() const;
+    ChannelStatus status();
 
 private Q_SLOTS:
     void longPollRequest();
@@ -50,26 +57,27 @@ private Q_SLOTS:
 Q_SIGNALS:
     void cookieUpdateNeeded(QNetworkCookie cookie);
     void updateClientId(QString newID);
-    void channelLost();
     void channelRestored(quint64 lastTimestamp);
     void clientBatchUpdate(ClientBatchUpdate &event);
+    void statusChanged(Channel::ChannelStatus status);
 
 private:
     void fetchNewSid();
     void parseChannelData(const QString &sreply);
     void processCookies(QNetworkReply *reply);
+    void setStatus(ChannelStatus status);
 
     QNetworkReply *mLongPoolRequest;
-    bool mChannelError;
     QNetworkAccessManager mNetworkAccessManager;
     ClientEntity mMyself;
-    QMap<QString, QNetworkCookie> mSessionCookies;
+    QMap<QString, QNetworkCookie> *mSessionCookies;
     QString mSid, mClid, mEc, mPath, mProp, mHeaderClient, mEmail, mGSessionId;
     quint64 mLastPushReceived;
     int mPendingParcelSize;
     QByteArray mPendingParcelBuffer;
     QTimer *mCheckChannelTimer;
     bool mFetchingSid;
+    ChannelStatus mStatus;
 };
 
 #endif // CHANNEL_H

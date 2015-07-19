@@ -89,15 +89,16 @@ Q_SIGNALS:
     void clientGetConversationResponse(quint64 requestId, ClientGetConversationResponse &cgcr);
     void clientSetPresenceResponse(quint64, ClientSetPresenceResponse &csprp);
     void clientQueryPresenceResponse(quint64, ClientQueryPresenceResponse &cqprp);
+    void connectionStatusChanged(ConnectionStatus status);
 
 private Q_SLOTS:
     void onClientBatchUpdate(ClientBatchUpdate &cbu);
     void onGetPVTTokenReply();
     void onChannelRestored(quint64 lastRec);
+    void onChannelStatusChanged(Channel::ChannelStatus status);
 private:
     void sendImageMessage(const QString &convId, const QString &imgId, const QString &segments);
     void performImageUpload(const QString &url);
-
     void getPVTToken();
 
     QString getRequestHeader() const;
