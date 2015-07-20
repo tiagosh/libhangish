@@ -43,7 +43,8 @@ Channel::Channel(QMap<QString, QNetworkCookie> &cookies, const QString &ppath, c
     mPendingParcelSize(0),
     mCheckChannelTimer(new QTimer(this)),
     mFetchingSid(false),
-    mStatus(ChannelStatusInactive)
+    mStatus(ChannelStatusInactive),
+    mFirstTime(true)
 {
     QObject::connect(mCheckChannelTimer, SIGNAL(timeout()), this, SLOT(onChannelLost()));
 }
@@ -219,9 +220,10 @@ void Channel::networReadyRead()
     // zero timer on every new message received
     mCheckChannelTimer->start(30000);
 
-    if (channelInactive) {
+    if (channelInactive && !mFirstTime) {
         Q_EMIT channelRestored(mLastPushReceived);
     }
+    mFirstTime = false;
 }
 
 void Channel::networkRequestFinished()

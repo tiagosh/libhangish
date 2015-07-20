@@ -78,6 +78,7 @@ private:
     QTimer *mCheckChannelTimer;
     bool mFetchingSid;
     ChannelStatus mStatus;
+    bool mFirstTime;
 };
 
 #endif // CHANNEL_H
