@@ -28,6 +28,7 @@
 #define SECONDFACTOR_URL "https://accounts.google.com/SecondFactor"
 #define SERVICE_LOGIN_AUTH_URL "https://accounts.google.com/ServiceLoginAuth"
 #define SERVICE_LOGIN_URL "https://accounts.google.com/ServiceLogin"
+#define SERVICE_SMS_AUTH_URL "https://accounts.google.com/signin/challenge""
 #define CHAT_INIT_URL "https://talkgadget.google.com/u/0/talkgadget/_/chat"
 #define ENDPOINT_URL "https://clients6.google.com/chat/v1/"
 #define ORIGIN_URL "https://talkgadget.google.com"

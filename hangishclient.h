@@ -45,7 +45,7 @@ public:
     quint64 queryPresence(const QStringList &chatIds);
     void sendImage(const QString &segments, const QString &conversationId, const QString &filename);
     void sendCredentials(const QString &uname, const QString &passwd);
-    void send2ndFactorPin(const QString &pin);
+    void sendChallengePin(const QString &pin);
     void deleteCookies();
     void setActiveClient();
     void setFocus(const QString &convId, int status);

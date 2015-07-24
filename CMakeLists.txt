@@ -11,7 +11,7 @@ set(QT_VERSION_MAJOR 5)
 set(HANGISH_VERSION "${HANGISH_VERSION_MAJOR}.${HANGISH_VERSION_MINOR}.${HANGISH_VERSION_PATCH}")
 set(HANGISH_ABI "${HANGISH_VERSION_MAJOR}.${HANGISH_VERSION_MINOR}")
 
-find_package(Qt5 REQUIRED COMPONENTS Core Network Script)
+find_package(Qt5 REQUIRED COMPONENTS Core Network Script Xml)
 find_package(Protobuf REQUIRED)
 
 include(GNUInstallDirs)
@@ -50,6 +50,7 @@ target_link_libraries(hangish
     Qt5::Core
     Qt5::Script
     Qt5::Network
+    Qt5::Xml
     ${PROTOBUF_LIBRARIES}
 )
 

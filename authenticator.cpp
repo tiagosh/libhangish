@@ -24,6 +24,7 @@
 #include <QJsonDocument>
 #include <QFile>
 #include <QUrlQuery>
+#include <QDomDocument>
 
 #include "authenticator.h"
 #include "types.h"
@@ -99,7 +100,43 @@ void Authenticator::networkCallback(QNetworkReply *reply)
                     qDebug() << "logged in";
                     saveAuthCookies();
                     Q_EMIT gotCookies(mSessionCookies);
+                } else if (reply->url().toString().startsWith(SERVICE_SMS_AUTH_URL)) {
+                    mPendingChallenge = SMS;
+
+                    QString ssreply = reply->readAll();
+
+                    int start = ssreply.indexOf("<form id=\"challenge\"");
+                    int end = ssreply.indexOf("</form>",start);
+                    QString content = ssreply.mid(start, end-start);
+                    QDomDocument doc;
+                    doc.setContent(content);
+                    QDomNode domNode = doc.firstChild();
+                    while(!domNode.isNull()) {
+                        if(domNode.isElement()) {
+                            QDomElement domElement = domNode.toElement();
+                            if(!domElement.isNull()) {
+                                if (domElement.tagName() == "input") {
+                                    QString id = domElement.attribute("id");
+                                    if (id == "challengeId") {
+                                        mChallengeId = domElement.attribute("value");
+                                    } else if (id == "challengeType") {
+                                        mChallengeType = domElement.attribute("value");
+                                    } else if (id == "gxf") {
+                                        mGxf = domElement.attribute("value");
+                                    }
+                                }
+                            }
+                        }
+                        if (domNode.childNodes().size() > 0) {
+                            domNode = domNode.childNodes().at(0);
+                        } else {
+                            domNode.clear();
+                        }
+                    }
+
+                    Q_EMIT authFailed(AUTH_NEED_2FACTOR_PIN);
                 } else if (reply->url().toString().startsWith(SECONDFACTOR_URL)) {
+                    mPendingChallenge = TWO_FACTOR_AUTHENTICATION;
                     qDebug() << "not logged in";
                     //2nd factor auth
                     qDebug() << "Auth failed " << reply->url();
@@ -241,6 +278,41 @@ void Authenticator::sendCredentials(const QString &uname, const QString &passwd)
     query.addQueryItem("continue", "https://talkgadget.google.com/talkgadget/gauth?verify=true");
 
     QNetworkRequest req(QUrl ( SERVICE_LOGIN_AUTH_URL ));
+    req.setRawHeader("Content-Type", "application/x-www-form-urlencoded");
+    mNetworkAccessManager.post(req, query.toString(QUrl::FullyEncoded).toUtf8());
+}
+
+void Authenticator::sendChallengePin(const QString &pin)
+{
+    switch(mPendingChallenge) {
+    case SMS:
+        sendSMSPin(pin);
+        break;
+    case TWO_FACTOR_AUTHENTICATION:
+        send2ndFactorPin(pin);
+        break;
+    }
+}
+
+void Authenticator::sendSMSPin(const QString &pin)
+{
+    qDebug() << __func__;
+
+    mAuthPhase = AUTH_PHASE_2FACTOR_PIN_SENT;
+
+    QUrlQuery query;
+    // TODO: check what fields are actually needed
+    query.addQueryItem("challengeId", mChallengeId);
+    query.addQueryItem("challengeType", mChallengeType);
+    query.addQueryItem("continue", "https://talkgadget.google.com/talkgadget/gauth?verify=true");
+    query.addQueryItem("skipvpage", "true");
+    query.addQueryItem("checkedDomains", "youtube");
+    query.addQueryItem("pstMsg", "0");
+    query.addQueryItem("gxf", mGxf);
+    query.addQueryItem("Pin", pin);
+    query.addQueryItem("TrustDevice", "true");
+
+    QNetworkRequest req( QUrl( SERVICE_SMS_AUTH_URL ) );
     req.setRawHeader("Content-Type", "application/x-www-form-urlencoded");
     mNetworkAccessManager.post(req, query.toString(QUrl::FullyEncoded).toUtf8());
 }

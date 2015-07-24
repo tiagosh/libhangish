@@ -34,10 +34,16 @@ class Authenticator : public QObject
     Q_OBJECT
 
 public:
+    enum ChallengeType {
+        TWO_FACTOR_AUTHENTICATION,
+        SMS
+    };
     Authenticator(const QString &cookiePath);
     void updateCookieFile(const QList<QNetworkCookie> &cookies);
     void authenticate();
     void sendCredentials(const QString &uname, const QString &passwd);
+    void sendChallengePin(const QString &pin);
+    void sendSMSPin(const QString &pin);
     void send2ndFactorPin(const QString &pin);
     void getGalxToken();
 
@@ -61,6 +67,10 @@ private:
     QString mCookiePath;
     QString mSecTok;
     QString mTimeStmp;
+    ChallengeType mPendingChallenge;
+    QString mChallengeId;
+    QString mChallengeType;
+    QString mGxf;
 };
 
 #endif // AUTHENTICATOR_H

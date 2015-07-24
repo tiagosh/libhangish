@@ -960,9 +960,9 @@ void HangishClient::sendCredentials(const QString &uname, const QString &passwd)
     mAuthenticator->sendCredentials(uname, passwd);
 }
 
-void HangishClient::send2ndFactorPin(const QString &pin)
+void HangishClient::sendChallengePin(const QString &pin)
 {
-    mAuthenticator->send2ndFactorPin(pin);
+    mAuthenticator->sendChallengePin(pin);
 }
 
 void HangishClient::deleteCookies()
