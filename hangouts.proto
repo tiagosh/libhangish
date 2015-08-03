@@ -727,8 +727,9 @@ message ClientMembershipChange {
 
 
 enum ClientMembershipChangeType {
-    JOIN                                                                =   0;
-    LEAVE                                                               =   1;
+    UNKNOWN_MEMBERSHIP_CHANGE_TYPE                                      =   0;
+    JOIN                                                                =   1;
+    LEAVE                                                               =   2;
 }
 
 
