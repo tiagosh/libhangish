@@ -176,7 +176,7 @@ bool Utils::packToMessage(const QVariantList& fields,
 #define REPEATED_STRING_TO_STRING(TYPE_PROTOBUF, TO_FUNCTION) \
     case FieldDescriptor::CPPTYPE_##TYPE_PROTOBUF:        \
     for (int j = 0; j < size; ++j)                  \
-    items << QString("\"") + QString(reflection->TO_FUNCTION(msg, field, j).c_str()) + QString("\"");      \
+    items << QString("\"") + QString(reflection->TO_FUNCTION(msg, field, j).c_str()).replace("\\", "\\\\").replace("\"", "\\\"") + QString("\"");      \
     break;
 
 #define REPEATED_TO_STRING_ENUM(TYPE_PROTOBUF) \
@@ -196,7 +196,7 @@ bool Utils::packToMessage(const QVariantList& fields,
 
 #define STRING_TO_STRING(TYPE_PROTOBUF, TO_FUNCTION) \
     case FieldDescriptor::CPPTYPE_##TYPE_PROTOBUF:        \
-    items << QString("\"") + QString(reflection->TO_FUNCTION(msg, field).c_str()) + QString("\"");      \
+    items << QString("\"") + QString(reflection->TO_FUNCTION(msg, field).c_str()).replace("\\", "\\\\").replace("\"", "\\\"" ) + QString("\"");      \
     break;
 
 QString Utils::msgToJsArray(Message &msg)
